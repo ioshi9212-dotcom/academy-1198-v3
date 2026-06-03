@@ -1,4 +1,6 @@
 schema: calendar_index_v1
-months:
-  "1206-08": "story/calendar/1206-08.yaml"
-  "1206-09": "story/calendar/1206-09.yaml"
+
+active_calendar: "academy_start"
+
+calendars:
+  academy_start: "story/calendar/academy_start.yaml"
