@@ -1,19 +1,77 @@
+# Main machine-readable character passport.
+# Keep this file short. Put detailed text into linked files.
+
 id: ""
 display_name: ""
 true_name: ""
+
 labels:
-  unknown_to_akira: ""
-  known_to_akira: ""
-  narrator_default: ""
-aliases: []
+  unknown_to_akira: ""        # visible descriptor before Akira knows the name
+  known_to_akira: ""          # label after name reveal
+  narrator_default: ""        # default label if POV allows it
+  speaker_label_before_reveal: ""
+  speaker_label_after_reveal: ""
+
+aliases: []                    # lower-case aliases for lookup
+reserved_aliases: []           # words that must not be reused for random NPCs
+
 gender: ""
 age: null
 height: null
+
 role:
   public_role: ""
   hidden_role: ""
   current_status: ""
+  faction_id: null
+  location_anchor: null
+
+files:
+  profile: "profile.md"        # human-readable questionnaire
+  appearance: "appearance.md"
+  behavior: "behavior.md"
+  voice: "voice.md"
+  knowledge: "knowledge.yaml"
+  energy: "energy.yaml"
+  past: "past.md"
+  habits: "habits.md"
+  goals: "goals.yaml"
+  links: "links.yaml"
+
 scene_usage:
   can_appear_without_calendar_reason: false
   requires_location_match: true
   requires_story_reason: true
+  can_be_background: false
+  can_speak_without_card_loaded: false
+
+pov_access:
+  akira_can_notice:
+    - "appearance"
+    - "voice"
+    - "movement"
+    - "facial_expression"
+    - "visible_reaction"
+  akira_cannot_know:
+    - "inner_thoughts"
+    - "hidden_motives"
+    - "unspoken_past"
+    - "secret_files"
+
+loading_rules:
+  always_load_with_character:
+    - "appearance"
+    - "behavior"
+    - "voice"
+    - "knowledge"
+    - "links"
+  load_only_if_scene_requires:
+    - "energy"
+    - "past"
+    - "habits"
+    - "goals"
+
+forbidden:
+  - "Do not change fixed appearance without user/canon update."
+  - "Do not give this character knowledge without a source."
+  - "Do not use hidden_role as public knowledge."
