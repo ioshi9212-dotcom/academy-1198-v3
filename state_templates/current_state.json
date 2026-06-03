@@ -3,16 +3,22 @@
   "project": "academy-1198-v3",
   "session_id": "{{SESSION_ID}}",
   "created_at": "{{CREATED_AT}}",
-  "current_date": "1206-08-31",
+
+  "current_year": "1198",
+  "current_date": null,
+  "current_day_id": "academy_day_001",
   "current_time": null,
   "time_of_day": null,
+
   "current_location_id": null,
-  "current_arc_id": "arc_001_start",
+  "current_arc_id": "arc_001_academy_start",
   "current_scene_id": null,
+
   "pov_character_id": "char_akira",
   "active_character_ids": ["char_akira"],
   "nearby_character_ids": [],
   "mentioned_character_ids": [],
+
   "story_flags": {},
   "last_time_advance": null
 }
