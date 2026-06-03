@@ -24,4 +24,18 @@ Akira is controlled by the player. The engine may describe visible body reaction
 
 ## Session law
 
-Every new run creates a new session. Runtime state lives under `/data/sessions/{session_id}/state/`. No game should use shared `/data/state` as active memory.
+Every new ChatGPT chat must create a new runtime session before play starts.
+
+Runtime state lives under:
+
+```text
+/data/sessions/{session_id}/state/
+```
+
+A new chat must never reuse a `session_id` from memory, previous chats, examples, tests, docs, or the latest folder in `/data/sessions`.
+
+Old sessions can be resumed only when the user explicitly gives a concrete `session_id` and asks to continue that exact session.
+
+No game should use shared `/data/state` as active memory.
+
+See also: `engine/session_policy.md`.
