@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-import json
 import os
-from pathlib import Path
 from typing import Any, Literal
 
 from fastapi import FastAPI, HTTPException
@@ -30,16 +28,19 @@ PUBLIC_BASE_URL = os.getenv("PUBLIC_BASE_URL", "").rstrip("/")
 COMPACT_EVERY_TURNS = int(os.getenv("COMPACT_EVERY_TURNS", "15"))
 MAX_FILE_CHARS = int(os.getenv("MAX_FILE_CHARS", "18000"))
 
-app = FastAPI(title=f"{PROJECT_SLUG} GPT Actions API", version="3.0.0")
+app = FastAPI(title=f"{PROJECT_SLUG} GPT Actions API", version="3.0.1")
+
 
 class CreateSessionRequest(BaseModel):
     session_id: str | None = None
     reset: bool = True
 
+
 class TurnContractRequest(BaseModel):
     user_input: str
     mode: Literal["play", "technical", "audit", "transfer"] = "play"
     include_file_contents: bool = True
+
 
 class ApplyTurnResultRequest(BaseModel):
     scene_id: str = "scene"
@@ -52,6 +53,7 @@ class ApplyTurnResultRequest(BaseModel):
     shared_incident_changes: dict[str, Any] = Field(default_factory=dict)
     inventory_changes: dict[str, Any] = Field(default_factory=dict)
     character_memory_changes: dict[str, Any] = Field(default_factory=dict)
+
 
 class CompactRequest(BaseModel):
     reason: str = "scheduled_compaction"
@@ -118,28 +120,45 @@ def build_required_files(current_state: dict[str, Any], mode: str) -> list[str]:
 def startup() -> None:
     ensure_runtime_root()
 
+
 @app.get("/")
 def root() -> dict[str, Any]:
-    return {"status": "ok", "project": PROJECT_SLUG, "actions_schema": "/openapi-actions.json"}
+    return {
+        "status": "ok",
+        "project": PROJECT_SLUG,
+        "version": "3.0.1",
+        "actions_schema": "/openapi-actions.json",
+        "health": "/health",
+        "debug_volume": "/debug/volume",
+    }
+
 
 @app.get("/health")
 def health() -> dict[str, Any]:
     return {"success": True, "project": PROJECT_SLUG, "time": utc_now()}
 
+
 @app.get("/debug/volume")
 def debug_volume() -> dict[str, Any]:
-    return {"success": True, **debug_info()}
+    try:
+        return {"success": True, **debug_info()}
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
 
 @app.post("/api/v1/sessions")
-def create_session(req: CreateSessionRequest) -> dict[str, Any]:
-    sid, root = ensure_session(req.session_id, reset=req.reset)
+def create_session(req: CreateSessionRequest | None = None) -> dict[str, Any]:
+    req = req or CreateSessionRequest()
+    sid, root_dir = ensure_session(req.session_id, reset=req.reset)
     return {
         "success": True,
         "session_id": sid,
-        "session_root": str(root),
+        "session_root": str(root_dir),
         "state_root": str(session_state_root(sid)),
+        "reset": req.reset,
         "next": {"turn_contract": f"/api/v1/sessions/{sid}/turn-contract"},
     }
+
 
 @app.post("/api/v1/sessions/{session_id}/turn-contract")
 def get_turn_contract(session_id: str, req: TurnContractRequest) -> dict[str, Any]:
@@ -169,12 +188,14 @@ def get_turn_contract(session_id: str, req: TurnContractRequest) -> dict[str, An
         ],
     }
 
+
 @app.post("/api/v1/sessions/{session_id}/apply-turn-result")
 def apply_turn_result(session_id: str, req: ApplyTurnResultRequest) -> dict[str, Any]:
-    sid, root = ensure_session(session_id, reset=False)
+    sid, _ = ensure_session(session_id, reset=False)
     state_root = session_state_root(sid)
+
     if req.technical:
-        append_jsonl(root / "technical_history.jsonl", {"time": utc_now(), "scene_id": req.scene_id, "text": req.scene_text})
+        append_jsonl(session_root(sid) / "technical_history.jsonl", {"time": utc_now(), "scene_id": req.scene_id, "text": req.scene_text})
         return {"success": True, "status": "technical_saved", "session_id": sid}
 
     append_jsonl(state_root / "scene_history.jsonl", {"time": utc_now(), "scene_id": req.scene_id, "scene_text": req.scene_text})
@@ -217,6 +238,7 @@ def apply_turn_result(session_id: str, req: ApplyTurnResultRequest) -> dict[str,
 
     return {"success": True, "session_id": sid, "updated_files": updated, "needs_compaction": compaction.get("needs_compaction", False)}
 
+
 @app.post("/api/v1/sessions/{session_id}/compact")
 def compact_session(session_id: str, req: CompactRequest) -> dict[str, Any]:
     sid, _ = ensure_session(session_id, reset=False)
@@ -233,6 +255,7 @@ def compact_session(session_id: str, req: CompactRequest) -> dict[str, Any]:
     write_state(sid, "compaction_state.json", compaction)
     return {"success": True, "session_id": sid, "status": "compacted"}
 
+
 @app.get("/api/v1/files/{file_path:path}")
 def read_file(file_path: str, session_id: str | None = None) -> PlainTextResponse:
     try:
@@ -241,12 +264,13 @@ def read_file(file_path: str, session_id: str | None = None) -> PlainTextRespons
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     return PlainTextResponse(text)
 
+
 @app.get("/openapi-actions.json")
 def openapi_actions() -> dict[str, Any]:
     server = PUBLIC_BASE_URL or "https://your-service.up.railway.app"
     return {
         "openapi": "3.1.0",
-        "info": {"title": f"{PROJECT_SLUG} GPT Actions", "version": "3.0.0"},
+        "info": {"title": f"{PROJECT_SLUG} GPT Actions", "version": "3.0.1"},
         "servers": [{"url": server}],
         "paths": {
             "/health": {"get": {"operationId": "healthCheck", "summary": "Check API health", "responses": {"200": {"description": "OK"}}}},
