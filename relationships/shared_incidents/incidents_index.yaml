@@ -1,0 +1,3 @@
+schema: incidents_index_v1
+runtime_file: "state/shared_incidents.json"
+template: "relationships/shared_incidents/incident_template.yaml"

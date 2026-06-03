@@ -1,0 +1,5 @@
+schema: lore_index_v1
+public_lore: "world/public_lore.md"
+hidden_lore: "world/hidden_lore.md"
+energy_index: "world/energy/energy_index.yaml"
+locations_index: "world/locations/locations_index.yaml"

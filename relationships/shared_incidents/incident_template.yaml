@@ -1,0 +1,15 @@
+id: ""
+title: ""
+date: ""
+time: ""
+location_id: ""
+participants:
+  present: []
+  witnessed: []
+  heard_about_later: []
+visible_facts: []
+spoken_lines: []
+physical_actions: []
+knowledge_changes: []
+relationship_changes: []
+status: "active_reference"

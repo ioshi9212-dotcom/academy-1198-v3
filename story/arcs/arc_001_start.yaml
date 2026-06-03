@@ -1,0 +1,19 @@
+arc_id: "arc_001_start"
+title: "Start arc"
+starts_at:
+  date: "1206-08-31"
+  event_id: "event_1206_08_31_start"
+ends_at:
+  date: null
+  event_id: null
+core_purpose:
+  - "establish Akira's starting pressure"
+  - "connect point A to point B without filler"
+  - "introduce only necessary characters"
+required_beats: []
+bridge_rules:
+  - "no empty domestic wandering"
+  - "every bridge must create observation, conflict, consequence or pressure"
+forbidden:
+  - "do not reveal hidden lore directly"
+  - "do not give NPC knowledge without source"

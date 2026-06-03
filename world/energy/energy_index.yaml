@@ -1,0 +1,4 @@
+schema: energy_index_v1
+general_rules: "world/energy/general_energy_rules.md"
+classes_and_levels: "world/energy/classes_and_levels.md"
+restrictions: "world/energy/restrictions.md"

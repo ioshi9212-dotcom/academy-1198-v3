@@ -1,0 +1,23 @@
+id: ""
+display_name: ""
+true_name: ""
+labels:
+  unknown_to_akira: ""
+  known_to_akira: ""
+aliases: []
+gender: ""
+age: null
+height: null
+role:
+  public_role: ""
+  hidden_role: ""
+files:
+  appearance: "appearance.md"
+  behavior: "behavior.md"
+  voice: "voice.md"
+  knowledge: "knowledge.yaml"
+  energy: "energy.yaml"
+  past: "past.md"
+  habits: "habits.md"
+  goals: "goals.yaml"
+  links: "links.yaml"

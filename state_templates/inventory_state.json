@@ -1,0 +1,5 @@
+{
+  "schema": "inventory_state_v1",
+  "session_id": "{{SESSION_ID}}",
+  "items": {}
+}

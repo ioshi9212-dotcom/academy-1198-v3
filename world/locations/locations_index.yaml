@@ -1,0 +1,3 @@
+schema: locations_index_v1
+locations:
+  loc_eastern_sector: "world/locations/eastern_sector/location_card.yaml"

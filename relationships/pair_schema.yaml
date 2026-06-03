@@ -1,0 +1,15 @@
+id: ""
+characters: []
+public_status: ""
+private_status: ""
+levels:
+  trust: 0
+  tension: 0
+  respect: 0
+  curiosity: 0
+  jealousy: 0
+  resentment: 0
+known_by: []
+open_threads: []
+shared_incidents: []
+behavior_next: ""

@@ -1,0 +1,9 @@
+{
+  "schema": "knowledge_state_v1",
+  "session_id": "{{SESSION_ID}}",
+  "public_knowledge": {},
+  "hidden_truths": {},
+  "character_knowledge": {},
+  "evidence_log": [],
+  "speaker_labels": {}
+}

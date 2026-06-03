@@ -1,0 +1,19 @@
+id: ""
+display_name: ""
+true_name: ""
+labels:
+  unknown_to_akira: ""
+  known_to_akira: ""
+  narrator_default: ""
+aliases: []
+gender: ""
+age: null
+height: null
+role:
+  public_role: ""
+  hidden_role: ""
+  current_status: ""
+scene_usage:
+  can_appear_without_calendar_reason: false
+  requires_location_match: true
+  requires_story_reason: true

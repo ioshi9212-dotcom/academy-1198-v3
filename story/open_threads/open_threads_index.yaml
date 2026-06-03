@@ -1,0 +1,3 @@
+schema: open_threads_index_v1
+runtime_file: "state/open_threads.json"
+thread_template: "story/open_threads/thread_template.yaml"

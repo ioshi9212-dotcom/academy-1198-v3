@@ -1,0 +1,4 @@
+schema: arcs_index_v1
+active_start_arc: "arc_001_start"
+arcs:
+  arc_001_start: "story/arcs/arc_001_start.yaml"

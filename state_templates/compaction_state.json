@@ -1,0 +1,10 @@
+{
+  "schema": "compaction_state_v1",
+  "session_id": "{{SESSION_ID}}",
+  "total_game_turns": 0,
+  "since_last_compaction": 0,
+  "compact_every_turns": 15,
+  "needs_compaction": false,
+  "last_compaction_turn": 0,
+  "last_compaction_at": null
+}

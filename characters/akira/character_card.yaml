@@ -1,0 +1,20 @@
+id: "char_akira"
+display_name: "Акира"
+labels:
+  known_to_akira: "Акира"
+  narrator_default: "Акира"
+aliases: ["акира", "akira"]
+role:
+  public_role: "player character"
+  hidden_role: null
+files:
+  appearance: "appearance.md"
+  behavior: "behavior.md"
+  voice: "voice.md"
+  inner_thoughts: "inner_thoughts_rules.md"
+  knowledge: "knowledge.yaml"
+  energy: "energy.yaml"
+  past: "past.md"
+  habits: "habits.md"
+  goals: "goals.yaml"
+  links: "links.yaml"

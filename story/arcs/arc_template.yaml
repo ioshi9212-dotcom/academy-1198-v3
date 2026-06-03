@@ -1,0 +1,12 @@
+arc_id: ""
+title: ""
+starts_at:
+  date: ""
+  event_id: ""
+ends_at:
+  date: ""
+  event_id: ""
+core_purpose: []
+required_beats: []
+optional_beats: []
+forbidden: []

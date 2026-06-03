@@ -1,0 +1,4 @@
+schema: relationships_index_v1
+runtime_file: "state/relationships.json"
+pair_schema: "relationships/pair_schema.yaml"
+shared_incidents: "relationships/shared_incidents/incidents_index.yaml"
