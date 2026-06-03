@@ -6,3 +6,18 @@ characters:
     aliases: ["акира", "akira"]
     known_label: "Акира"
     unknown_label: "беловолосая девушка"
+
+  char_livia:
+    folder: "characters/livia/"
+    main_file: "characters/livia/character_card.yaml"
+    aliases: ["ливия", "livia"]
+    known_label: "Ливия"
+    unknown_label: "девушка"
+
+  char_raiden:
+    folder: "characters/raiden/"
+    main_file: "characters/raiden/character_card.yaml"
+    aliases: ["райден", "raiden"]
+    reserved_aliases: ["рей", "рэй", "ирэй", "irey"]
+    known_label: "Райден"
+    unknown_label: "высокий тёмноволосый парень"
