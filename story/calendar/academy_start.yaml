@@ -1,0 +1,22 @@
+calendar_id: "academy_start"
+year: "1198"
+
+days:
+  academy_day_001:
+    day_status: "hard_event"
+    title: "Старт Академии"
+    required_events:
+      - event_id: "event_academy_start"
+        type: "main"
+        required: true
+        title: "Первый день Академии"
+        summary: ""
+        location_id: null
+        required_characters: ["char_akira"]
+        forbidden_characters: []
+        blocks_time_skip: true
+        flexibility: "fixed"
+        completion_status: "open"
+
+    optional_events: []
+    forbidden: []
