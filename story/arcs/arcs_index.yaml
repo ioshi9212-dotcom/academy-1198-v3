@@ -1,4 +1,6 @@
 schema: arcs_index_v1
-active_start_arc: "arc_001_start"
+
+active_start_arc: "arc_001_academy_start"
+
 arcs:
-  arc_001_start: "story/arcs/arc_001_start.yaml"
+  arc_001_academy_start: "story/arcs/arc_001_academy_start.yaml"
