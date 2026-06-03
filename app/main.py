@@ -132,7 +132,7 @@ def build_required_files(current_state: dict[str, Any], mode: str) -> list[str]:
         "state/current_state.json",
         "state/recent_turns.md",
     ]
-   calendar_id = current_state.get("current_calendar_id") or "academy_start"
+calendar_id = current_state.get("current_calendar_id") or "academy_start"
 if isinstance(calendar_id, str) and calendar_id:
     base.append(f"story/calendar/{calendar_id}.yaml")
 
