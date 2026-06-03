@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 from typing import Any, Literal
 
@@ -28,7 +29,7 @@ PUBLIC_BASE_URL = os.getenv("PUBLIC_BASE_URL", "").rstrip("/")
 COMPACT_EVERY_TURNS = int(os.getenv("COMPACT_EVERY_TURNS", "15"))
 MAX_FILE_CHARS = int(os.getenv("MAX_FILE_CHARS", "18000"))
 
-app = FastAPI(title=f"{PROJECT_SLUG} GPT Actions API", version="3.0.1")
+app = FastAPI(title=f"{PROJECT_SLUG} GPT Actions API", version="3.0.2")
 
 
 class CreateSessionRequest(BaseModel):
@@ -55,6 +56,19 @@ class ApplyTurnResultRequest(BaseModel):
     character_memory_changes: dict[str, Any] = Field(default_factory=dict)
 
 
+class ApplyTurnResultSimpleRequest(BaseModel):
+    scene_id: str = "scene"
+    scene_text: str = ""
+    technical: bool = False
+    current_state_changes_json: str = "{}"
+    knowledge_changes_json: str = "{}"
+    relationship_changes_json: str = "{}"
+    open_thread_changes_json: str = "{}"
+    shared_incident_changes_json: str = "{}"
+    inventory_changes_json: str = "{}"
+    character_memory_changes_json: str = "{}"
+
+
 class CompactRequest(BaseModel):
     reason: str = "scheduled_compaction"
     compact_last_turns: int = 15
@@ -77,6 +91,16 @@ def deep_merge(base: dict[str, Any], patch: dict[str, Any]) -> dict[str, Any]:
     return base
 
 
+def parse_json_text(value: str) -> dict[str, Any]:
+    if not value:
+        return {}
+    try:
+        parsed = json.loads(value)
+    except json.JSONDecodeError:
+        return {}
+    return parsed if isinstance(parsed, dict) else {}
+
+
 def read_json_state(session_id: str, filename: str) -> dict[str, Any]:
     value = read_state(session_id, filename)
     return value if isinstance(value, dict) else {}
@@ -95,6 +119,7 @@ def build_required_files(current_state: dict[str, Any], mode: str) -> list[str]:
         "engine/turn_contract.md",
         "engine/loading_policy.md",
         "engine/source_priority.md",
+        "engine/session_policy.md",
         "engine/scene_generation_rules.md",
         "engine/output_format.md",
         "engine/pov_rules.md",
@@ -126,7 +151,7 @@ def root() -> dict[str, Any]:
     return {
         "status": "ok",
         "project": PROJECT_SLUG,
-        "version": "3.0.1",
+        "version": "3.0.2",
         "actions_schema": "/openapi-actions.json",
         "health": "/health",
         "debug_volume": "/debug/volume",
@@ -184,7 +209,7 @@ def get_turn_contract(session_id: str, req: TurnContractRequest) -> dict[str, An
             "Use current session runtime state, not old chat memory.",
             "Load active characters by ID only.",
             "NPCs speak from their own knowledge, not hidden canon.",
-            "After a meaningful scene, call applyTurnResult.",
+            "After a meaningful scene, call applyTurnResult or applyTurnResultSimple.",
         ],
     }
 
@@ -239,6 +264,25 @@ def apply_turn_result(session_id: str, req: ApplyTurnResultRequest) -> dict[str,
     return {"success": True, "session_id": sid, "updated_files": updated, "needs_compaction": compaction.get("needs_compaction", False)}
 
 
+@app.post("/api/v1/sessions/{session_id}/apply-turn-result-simple")
+def apply_turn_result_simple(session_id: str, req: ApplyTurnResultSimpleRequest) -> dict[str, Any]:
+    return apply_turn_result(
+        session_id,
+        ApplyTurnResultRequest(
+            scene_id=req.scene_id,
+            scene_text=req.scene_text,
+            technical=req.technical,
+            current_state_changes=parse_json_text(req.current_state_changes_json),
+            knowledge_changes=parse_json_text(req.knowledge_changes_json),
+            relationship_changes=parse_json_text(req.relationship_changes_json),
+            open_thread_changes=parse_json_text(req.open_thread_changes_json),
+            shared_incident_changes=parse_json_text(req.shared_incident_changes_json),
+            inventory_changes=parse_json_text(req.inventory_changes_json),
+            character_memory_changes=parse_json_text(req.character_memory_changes_json),
+        ),
+    )
+
+
 @app.post("/api/v1/sessions/{session_id}/compact")
 def compact_session(session_id: str, req: CompactRequest) -> dict[str, Any]:
     sid, _ = ensure_session(session_id, reset=False)
@@ -270,7 +314,7 @@ def openapi_actions() -> dict[str, Any]:
     server = PUBLIC_BASE_URL or "https://your-service.up.railway.app"
     return {
         "openapi": "3.1.0",
-        "info": {"title": f"{PROJECT_SLUG} GPT Actions", "version": "3.0.1"},
+        "info": {"title": f"{PROJECT_SLUG} GPT Actions", "version": "3.0.2"},
         "servers": [{"url": server}],
         "paths": {
             "/health": {"get": {"operationId": "healthCheck", "summary": "Check API health", "responses": {"200": {"description": "OK"}}}},
@@ -278,6 +322,7 @@ def openapi_actions() -> dict[str, Any]:
             "/api/v1/sessions": {"post": {"operationId": "createSession", "summary": "Create a new runtime session", "requestBody": {"required": False, "content": {"application/json": {"schema": CreateSessionRequest.model_json_schema()}}}, "responses": {"200": {"description": "Session created"}}}},
             "/api/v1/sessions/{session_id}/turn-contract": {"post": {"operationId": "getSessionTurnContract", "summary": "Get files and runtime state for one turn", "parameters": [{"name": "session_id", "in": "path", "required": True, "schema": {"type": "string"}}], "requestBody": {"required": True, "content": {"application/json": {"schema": TurnContractRequest.model_json_schema()}}}, "responses": {"200": {"description": "Turn contract"}}}},
             "/api/v1/sessions/{session_id}/apply-turn-result": {"post": {"operationId": "applyTurnResult", "summary": "Persist scene and state changes", "parameters": [{"name": "session_id", "in": "path", "required": True, "schema": {"type": "string"}}], "requestBody": {"required": True, "content": {"application/json": {"schema": ApplyTurnResultRequest.model_json_schema()}}}, "responses": {"200": {"description": "Saved"}}}},
+            "/api/v1/sessions/{session_id}/apply-turn-result-simple": {"post": {"operationId": "applyTurnResultSimple", "summary": "Persist scene and state changes using JSON strings for GPT Actions", "parameters": [{"name": "session_id", "in": "path", "required": True, "schema": {"type": "string"}}], "requestBody": {"required": True, "content": {"application/json": {"schema": ApplyTurnResultSimpleRequest.model_json_schema()}}}, "responses": {"200": {"description": "Saved"}}}},
             "/api/v1/sessions/{session_id}/compact": {"post": {"operationId": "compactSessionMemory", "summary": "Persist memory compaction", "parameters": [{"name": "session_id", "in": "path", "required": True, "schema": {"type": "string"}}], "requestBody": {"required": True, "content": {"application/json": {"schema": CompactRequest.model_json_schema()}}}, "responses": {"200": {"description": "Compacted"}}}},
         },
     }
