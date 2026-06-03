@@ -1,0 +1,25 @@
+character_id: "char_livia"
+relationships:
+  pair_ids: []
+  required_when_together: []
+  required_when_mentioned: []
+shared_incidents:
+  witnessed: []
+  participated: []
+  heard_about: []
+  private_reaction_refs: []
+canon_files:
+  public: []
+  hidden: []
+  relationship_lore: []
+  location_lore: []
+  energy_lore: []
+runtime_refs:
+  character_memory: "state/character_memory/char_livia.json"
+  focused_relationships: "state/relationships.json"
+  open_threads: "state/open_threads.json"
+  shared_incidents: "state/shared_incidents.json"
+loading_hints:
+  load_past_if: ["scene asks about past", "shared incident references past", "character is confronted with known trigger"]
+  load_energy_if: ["training", "combat", "energy check", "ability is mentioned"]
+  load_habits_if: ["close interaction", "romantic or hostile tension", "body language matters"]
