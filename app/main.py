@@ -132,12 +132,13 @@ def build_required_files(current_state: dict[str, Any], mode: str) -> list[str]:
         "state/current_state.json",
         "state/recent_turns.md",
     ]
-    month = str(current_state.get("current_date", "1206-08-31"))[:7]
-    if month:
-        base.append(f"story/calendar/{month}.yaml")
-    arc_id = current_state.get("current_arc_id")
-    if isinstance(arc_id, str) and arc_id:
-        base.append(f"story/arcs/{arc_id}.yaml")
+   calendar_id = current_state.get("current_calendar_id") or "academy_start"
+if isinstance(calendar_id, str) and calendar_id:
+    base.append(f"story/calendar/{calendar_id}.yaml")
+
+arc_id = current_state.get("current_arc_id") or "arc_001_academy_start"
+if isinstance(arc_id, str) and arc_id:
+    base.append(f"story/arcs/{arc_id}.yaml")
     return list(dict.fromkeys(base))
 
 
