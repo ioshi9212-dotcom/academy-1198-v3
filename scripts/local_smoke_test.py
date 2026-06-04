@@ -30,8 +30,7 @@ def main() -> None:
     assert "state/current_state.json" in contract["required_files"]
     assert "story/calendar/academy_start.yaml" in contract["required_files"]
     assert "story/arcs/arc_001_academy_start.yaml" in contract["required_files"]
-    assert "story/calendar/1206-08.yaml" not in contract["required_files"]
-    assert "story/arcs/arc_001_start.yaml" not in contract["required_files"]
+    assert all("old_timeline" not in path for path in contract["required_files"])
     print("TURN_CONTRACT_OK", len(contract["required_files"]), "files")
 
     result = apply_turn_result(
