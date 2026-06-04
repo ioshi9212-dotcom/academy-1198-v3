@@ -1,0 +1,9 @@
+schema: academy_index_v1
+
+files:
+  overview: "world/academy/academy_overview.md"
+  rules: "world/academy/rules.md"
+  schedule: "world/academy/schedule.md"
+  access: "world/academy/access_and_limits.md"
+  zones: "world/academy/zones.md"
+  scene_hooks: "world/academy/scene_hooks.md"
