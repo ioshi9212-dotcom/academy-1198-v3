@@ -12,7 +12,7 @@ Always load:
 - engine/source_priority.md
 - state/current_state.json
 - state/recent_turns.md
-- current month calendar
+- active calendar from current_calendar_id
 - current arc if present
 
 Load conditionally:
