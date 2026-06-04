@@ -28,6 +28,10 @@ def main() -> None:
     assert contract["success"] is True
     assert contract["session_id"] == session_id
     assert "state/current_state.json" in contract["required_files"]
+    assert "story/calendar/academy_start.yaml" in contract["required_files"]
+    assert "story/arcs/arc_001_academy_start.yaml" in contract["required_files"]
+    assert "story/calendar/1206-08.yaml" not in contract["required_files"]
+    assert "story/arcs/arc_001_start.yaml" not in contract["required_files"]
     print("TURN_CONTRACT_OK", len(contract["required_files"]), "files")
 
     result = apply_turn_result(
@@ -53,7 +57,7 @@ def main() -> None:
                 "char_livia": {
                     "seen_events": [
                         {
-                            "date": "1206-08-31",
+                            "day_id": "academy_day_001",
                             "time": "00:01",
                             "scene_id": "smoke_scene_001",
                             "summary": "Smoke test event.",
