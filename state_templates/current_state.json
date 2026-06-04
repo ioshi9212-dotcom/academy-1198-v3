@@ -11,7 +11,7 @@
   "current_time": null,
   "time_of_day": null,
 
-  "current_location_id": null,
+  "current_location_id": "loc_academy_arrival_checkpoint",
   "current_arc_id": "arc_001_academy_start",
   "current_scene_id": null,
 
