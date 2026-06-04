@@ -1,8 +1,10 @@
 calendar_id: "academy_start"
 year: "1198"
+start_date: "1198-08-15"
 
 days:
   academy_day_001:
+    date: "1198-08-15"
     day_status: "hard_event"
     title: "Старт Академии"
     required_events:
@@ -10,7 +12,7 @@ days:
         type: "main"
         required: true
         title: "Первый день Академии"
-        summary: ""
+        summary: "Стартовая рамка Академии: прибытие, первичная сверка, правила через действие, первые ограничения."
         location_id: null
         required_characters: ["char_akira"]
         forbidden_characters: []
