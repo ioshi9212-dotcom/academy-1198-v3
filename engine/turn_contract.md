@@ -4,8 +4,8 @@ Before every play-scene answer, the engine must:
 
 1. Read current runtime session state.
 2. Read recent_turns.
-3. Check current date, time, location and arc.
-4. Check current month calendar.
+3. Check current year, date, day_id, time, location and arc.
+4. Check active calendar by current_calendar_id.
 5. Load active characters by ID only.
 6. Load mentioned characters only if the user input or active state requires them.
 7. Load focused knowledge and focused relationships.
