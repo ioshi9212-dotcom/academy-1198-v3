@@ -17,6 +17,12 @@ Scene text is limited to what Akira can:
 - body language;
 - pauses;
 - environment;
+- weather;
+- clothing condition;
+- physical discomfort;
+- injury pain;
+- fatigue;
+- hunger or thirst;
 - physical energy effects;
 - Akira's physical reactions;
 - Akira's surface assumptions;
@@ -32,6 +38,23 @@ Scene text is limited to what Akira can:
 - Akira's direct inner monologue inside the scene body.
 
 Akira's true thoughts belong only in the bottom block.
+
+## Akira is not a doll
+
+Akira is controlled by the player through actions, but she remains a character.
+
+Her private thoughts and feelings may disagree with the action.
+
+This disagreement must be shown only as:
+
+- physical hesitation;
+- discomfort;
+- internal thought in the bottom block;
+- later emotional consequence;
+- relationship consequence;
+- body-state consequence.
+
+Do not use it to steal control from the player.
 
 ## Correct style
 

@@ -7,18 +7,50 @@
   "current_year": "1198",
   "current_calendar_id": "academy_start",
   "current_date": "1198-08-15",
+  "current_day_of_week": "суббота",
   "current_day_id": "academy_day_001",
-  "current_time": null,
-  "time_of_day": null,
+  "current_time": "08:40",
+  "time_of_day": "morning",
 
   "current_location_id": "loc_academy_main",
   "current_arc_id": "arc_001_academy_start",
   "current_scene_id": null,
 
+  "weather": {
+    "condition": "переменная облачность",
+    "temperature_c": 22,
+    "wind": "лёгкий",
+    "precipitation": "нет",
+    "ground": "сухо",
+    "visibility": "нормальная"
+  },
+
   "pov_character_id": "char_akira",
-  "active_character_ids": ["char_akira"],
+  "active_character_ids": ["char_akira", "char_livia"],
   "nearby_character_ids": [],
   "mentioned_character_ids": [],
+
+  "character_status": {
+    "char_akira": {
+      "physical_state": "собрана",
+      "pain": {},
+      "injuries": [],
+      "fatigue": 0,
+      "hunger": 0,
+      "thirst": 0,
+      "wetness": 0,
+      "clothing_state": "сухая обычная одежда новичка",
+      "hair_state": "сухие очень длинные белые волосы",
+      "appearance_changes": [],
+      "notes": []
+    }
+  },
+
+  "scene_continuity": {
+    "visible_item_state": {},
+    "environmental_effects": [],
+    "pending_consequences": []
+  },
 
   "story_flags": {},
   "last_time_advance": null
