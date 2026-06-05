@@ -1,25 +1,84 @@
 character_id: "char_livia"
+schema: "character_links_v1"
+
 relationships:
-  pair_ids: []
-  required_when_together: []
-  required_when_mentioned: []
+  - target_id: "char_akira"
+    status: "close_school_friend"
+    visibility: "active_at_start"
+    start_use: "Ливия и Акира стартуют вместе 1198-08-15 как давние школьные подруги."
+    current_dynamic: "familiar teasing, real care, irritation, shared habits, separate agency"
+    constraints:
+      - "Livia is not Akira's shadow."
+      - "Livia does not speak or decide for Akira."
+      - "Livia may disagree, get hurt, joke, pull away or follow her own interest."
+
+  - target_id: "char_kir"
+    status: "old_school_link"
+    visibility: "delayed_on_first_day"
+    start_use: "Кир появляется позже 1198-08-15, будто опоздал на регистрацию или пришёл из другого потока новичков."
+    current_dynamic: "old teasing, boundary-testing, familiar irritation"
+    constraints:
+      - "Kir is not constantly attached to Livia and Akira."
+      - "Livia knows Kir well enough not to treat him as a random dangerous stranger."
+      - "Livia does not always take his side."
+
+  - target_id: "char_kiara"
+    status: "future_social_rival"
+    visibility: "first_trace_later_1198_08_15"
+    start_use: "Киара появляется позже стартовой сверки как заметная курсантка и будущая социальная соперница Ливии."
+    current_dynamic: "not fully active yet"
+    constraints:
+      - "Do not make Livia and Kiara's rivalry completed at first sight."
+      - "Start with attention, comparison, irritation or social contrast."
+
+  - target_id: "char_raiden"
+    status: "future_attention_hook"
+    visibility: "inactive_at_start"
+    start_use: "Не стартовый фокус. Может стать отдельной линией позже, когда scene/calendar supports it."
+    current_dynamic: "not active yet"
+    constraints:
+      - "Do not make Livia's interest in Raiden happen before the scene earns it."
+      - "Do not make Raiden center the first scene."
+
+  - target_id: "char_haru"
+    status: "future_social_hook"
+    visibility: "inactive_at_start"
+    start_use: "Будущая социальная/эмоциональная линия, не первый кадр."
+    current_dynamic: "not active yet"
+    constraints:
+      - "Do not make Livia automatically step aside for Akira."
+      - "Do not start this line before Haru is introduced."
+
 shared_incidents:
   witnessed: []
-  participated: []
+  participated:
+    - id: "school_friendship_with_akira"
+      summary: "Ливия и Акира дружат со школы около шести лет."
+      visibility: "known_to_livia_and_akira"
+    - id: "school_link_with_kir"
+      summary: "Ливия, Акира и Кир имеют старую школьную динамику."
+      visibility: "known_to_livia_akira_kir"
   heard_about: []
   private_reaction_refs: []
+
 canon_files:
-  public: []
+  public:
+    - "old_repo: characters/main/livia_cross.md"
+    - "old_repo: characters/habits/livia_habits.md"
+    - "old_repo: characters/powers/livia_resonance.md"
   hidden: []
   relationship_lore: []
   location_lore: []
-  energy_lore: []
+  energy_lore:
+    - "characters/livia/energy.yaml"
+
 runtime_refs:
   character_memory: "state/character_memory/char_livia.json"
   focused_relationships: "state/relationships.json"
   open_threads: "state/open_threads.json"
   shared_incidents: "state/shared_incidents.json"
+
 loading_hints:
   load_past_if: ["scene asks about past", "shared incident references past", "character is confronted with known trigger"]
   load_energy_if: ["training", "combat", "energy check", "ability is mentioned"]
-  load_habits_if: ["close interaction", "romantic or hostile tension", "body language matters"]
+  load_habits_if: ["close interaction", "social tension", "body language matters"]
