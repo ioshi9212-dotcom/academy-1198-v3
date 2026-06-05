@@ -1,3 +1,37 @@
 character_id: "char_akira"
-relationships: []
+schema: "character_links_v1"
+
+active_at_start:
+  - character_id: "char_akira"
+    status: "self / POV character"
+    visibility: "active"
+    notes: "Единственный обязательный активный персонаж стартовой сцены."
+
+relationships:
+  - target_id: "char_livia"
+    status: "potential_early_social_link"
+    visibility: "not_active_until_scene_introduces"
+    start_use: "Ливия может появиться как живая социальная связка Академии, но не как справочник и не как авторский голос."
+    current_dynamic: "unknown / first contact pending"
+    constraints:
+      - "Introduce only if the scene, calendar or hook supports it."
+      - "Do not make Livia explain everything."
+      - "Do not make Akira trust her instantly."
+
+  - target_id: "char_raiden"
+    status: "complex_link_locked"
+    visibility: "hidden_or_inactive_at_start"
+    start_use: "Не стартовый фокус. Не загружать первым без причины календаря, сцены или state."
+    current_dynamic: "do not surface yet"
+    constraints:
+      - "Do not make him the center of the first Academy scene."
+      - "Do not reveal complex link through narration."
+      - "Do not use him as an automatic scene driver."
+
 shared_incidents: []
+
+scene_link_rules:
+  - "At start, Akira's active link is the Academy system itself: access, rules, group, staff reaction, reputation."
+  - "Social links should begin through action, conflict, observation or consequence."
+  - "Do not introduce relationships as completed facts if the scene has not earned them."
+  - "Do not use hidden or future relationship canon as visible knowledge."
