@@ -1,12 +1,30 @@
 id: "char_akira"
 display_name: "Акира"
+true_name: "Акира"
+
 labels:
   known_to_akira: "Акира"
   narrator_default: "Акира"
-aliases: ["акира", "akira"]
+  unknown_to_others: "беловолосая девушка"
+  speaker_label_before_reveal: "Девушка"
+  speaker_label_after_reveal: "Акира"
+
+aliases:
+  - "акира"
+  - "akira"
+reserved_aliases: []
+
+gender: "female"
+age: null
+height: null
+
 role:
-  public_role: "player character"
+  public_role: "студентка Академии 1198; player character / POV character"
   hidden_role: null
+  current_status: "новоприбывшая на стартовой рамке Академии"
+  faction_id: null
+  location_anchor: "loc_academy_main"
+
 files:
   appearance: "appearance.md"
   behavior: "behavior.md"
@@ -18,3 +36,25 @@ files:
   habits: "habits.md"
   goals: "goals.yaml"
   links: "links.yaml"
+
+scene_usage:
+  can_appear_without_calendar_reason: true
+  requires_location_match: false
+  requires_story_reason: false
+  can_be_background: false
+  can_speak_without_card_loaded: true
+
+pov_access:
+  engine_may_describe: ["visible body reactions", "physical state", "consequences", "what Akira sees", "what Akira hears", "what Akira physically feels"]
+  engine_must_not_force: ["decision", "direct reply", "trust", "forgiveness", "romance", "confession", "surrender", "emotional conclusion"]
+
+loading_rules:
+  always_load_with_character: ["appearance", "behavior", "voice", "knowledge", "links", "energy", "goals"]
+  load_only_if_scene_requires: ["past", "habits"]
+
+forbidden:
+  - "Do not write major actions for Akira unless the user gave them."
+  - "Do not write direct replies for Akira unless the user gave the exact reply."
+  - "Do not make Akira trust, forgive, confess, fear, obey, surrender or fall in love automatically."
+  - "Do not reveal hidden lore through narration if Akira does not know it."
+  - "Do not use old 1206/Eastern Sector context as her current start frame."
