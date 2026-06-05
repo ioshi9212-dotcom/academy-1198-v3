@@ -2,5 +2,53 @@
   "updated_at": "{{CREATED_AT}}",
   "schema": "event_seeds_v1",
   "description": "Future scene possibilities planted by visible events. Seeds are not shown to the user.",
-  "items": {}
+  "items": {},
+  "seed_white_hair_first_attention": {
+    "type": "gossip_social_attention",
+    "status": "seeded",
+    "priority": 5,
+    "date": "1198-08-15",
+    "location_id": "loc_academy_main",
+    "characters": ["char_akira"],
+    "source": "Акира входит в поток новичков с очень длинными белыми волосами и спокойным лицом.",
+    "pressure": "социальное внимание, первые взгляды, слух без слов",
+    "possible_payoffs": [
+      "кто-то шепчет о беловолосой новенькой",
+      "сотрудник сверки задерживает взгляд на слишком спокойной реакции",
+      "peer_attention Акиры растёт ещё до официальных проверок"
+    ],
+    "can_trigger_after": "immediately"
+  },
+  "seed_livia_not_a_guide": {
+    "type": "character_behavior_seed",
+    "status": "seeded",
+    "priority": 5,
+    "date": "1198-08-15",
+    "location_id": "loc_academy_main",
+    "characters": ["char_livia", "char_akira"],
+    "source": "Ливия стартует рядом с Акирой и должна проявляться как самостоятельная социальная сила.",
+    "pressure": "шум, защита через шутку, флирт с ситуацией, скрытая оценка поля",
+    "possible_payoffs": [
+      "Ливия отвечает на чужие взгляды громче, чем нужно",
+      "Ливия цепляется за новую социальную фигуру и тут же отшучивается",
+      "Акира замечает, где Ливия шумит не от веселья"
+    ],
+    "can_trigger_after": "immediately"
+  },
+  "seed_kir_late_entry": {
+    "type": "delayed_character_entry",
+    "status": "maturing",
+    "priority": 4,
+    "date": "1198-08-15",
+    "location_id": "loc_academy_main",
+    "characters": ["char_kir", "char_akira", "char_livia"],
+    "source": "Кир должен появиться позже, будто опоздал на регистрацию или пришёл из другого потока.",
+    "pressure": "сбитый ритм, узнавание, чужое внимание, раздражение сотрудников",
+    "possible_payoffs": [
+      "Кир появляется после первого давления и ломает слишком ровную сцену",
+      "сотрудник замечает опоздание и реагирует сухо",
+      "Ливия реагирует первой, но не объясняет его игроку как справочник"
+    ],
+    "can_trigger_after": "after first entry pressure"
+  }
 }
