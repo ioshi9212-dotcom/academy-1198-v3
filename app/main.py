@@ -29,7 +29,7 @@ PUBLIC_BASE_URL = os.getenv("PUBLIC_BASE_URL", "").rstrip("/")
 COMPACT_EVERY_TURNS = int(os.getenv("COMPACT_EVERY_TURNS", "15"))
 MAX_FILE_CHARS = int(os.getenv("MAX_FILE_CHARS", "18000"))
 
-app = FastAPI(title=f"{PROJECT_SLUG} GPT Actions API", version="3.0.3")
+app = FastAPI(title=f"{PROJECT_SLUG} GPT Actions API", version="3.0.4")
 
 
 class CreateSessionRequest(BaseModel):
@@ -99,6 +99,8 @@ BASE_REQUIRED_FILES = [
     "state/relationships.json",
     "state/open_threads.json",
     "state/shared_incidents.json",
+    "state/inventory_state.json",
+    "state/compaction_state.json",
     "world/lore_index.yaml",
     "world/public_lore.md",
     "world/academy/academy_index.yaml",
@@ -119,31 +121,26 @@ BASE_REQUIRED_FILES = [
     "knowledge/knowledge_rules.md",
 ]
 
+
+def character_files(folder: str) -> list[str]:
+    return [
+        f"characters/{folder}/character_card.yaml",
+        f"characters/{folder}/appearance.md",
+        f"characters/{folder}/behavior.md",
+        f"characters/{folder}/voice.md",
+        f"characters/{folder}/knowledge.yaml",
+        f"characters/{folder}/links.yaml",
+        f"characters/{folder}/goals.yaml",
+    ]
+
+
 CHARACTER_REQUIRED_FILES: dict[str, list[str]] = {
-    "char_akira": [
-        "characters/akira/character_card.yaml",
-        "characters/akira/appearance.md",
-        "characters/akira/behavior.md",
-        "characters/akira/voice.md",
-        "characters/akira/knowledge.yaml",
-        "characters/akira/links.yaml",
-    ],
-    "char_livia": [
-        "characters/livia/character_card.yaml",
-        "characters/livia/appearance.md",
-        "characters/livia/behavior.md",
-        "characters/livia/voice.md",
-        "characters/livia/knowledge.yaml",
-        "characters/livia/links.yaml",
-    ],
-    "char_raiden": [
-        "characters/raiden/character_card.yaml",
-        "characters/raiden/appearance.md",
-        "characters/raiden/behavior.md",
-        "characters/raiden/voice.md",
-        "characters/raiden/knowledge.yaml",
-        "characters/raiden/links.yaml",
-    ],
+    "char_akira": character_files("akira"),
+    "char_livia": character_files("livia"),
+    "char_kir": character_files("kir"),
+    "char_kiara": character_files("kiara"),
+    "char_haru": character_files("haru"),
+    "char_raiden": character_files("raiden"),
 }
 
 LOCATION_REQUIRED_FILES: dict[str, list[str]] = {
@@ -194,17 +191,14 @@ def write_json_state(session_id: str, filename: str, patch: dict[str, Any]) -> N
 def add_character_files(required_files: list[str], character_ids: Any) -> None:
     if not isinstance(character_ids, list):
         return
-
     for character_id in character_ids:
-        if not isinstance(character_id, str):
-            continue
-        required_files.extend(CHARACTER_REQUIRED_FILES.get(character_id, []))
+        if isinstance(character_id, str):
+            required_files.extend(CHARACTER_REQUIRED_FILES.get(character_id, []))
 
 
 def add_location_files(required_files: list[str], location_id: Any) -> None:
-    if not isinstance(location_id, str):
-        return
-    required_files.extend(LOCATION_REQUIRED_FILES.get(location_id, []))
+    if isinstance(location_id, str):
+        required_files.extend(LOCATION_REQUIRED_FILES.get(location_id, []))
 
 
 def build_required_files(current_state: dict[str, Any], mode: str) -> list[str]:
@@ -224,16 +218,15 @@ def build_required_files(current_state: dict[str, Any], mode: str) -> list[str]:
     add_character_files(required_files, current_state.get("active_character_ids"))
     add_character_files(required_files, current_state.get("nearby_character_ids"))
     add_character_files(required_files, current_state.get("mentioned_character_ids"))
+    add_character_files(required_files, current_state.get("scheduled_character_ids"))
+    add_character_files(required_files, current_state.get("delayed_character_ids"))
 
     if mode in {"audit", "transfer"}:
-        required_files.extend(
-            [
-                "validation/checklist_after_scene.md",
-                "relationships/shared_incidents/incidents_index.yaml",
-                "relationships/shared_incidents/incident_template.yaml",
-                "world/hidden_lore.md",
-            ]
-        )
+        required_files.extend([
+            "validation/checklist_after_scene.md",
+            "relationships/shared_incidents/incidents_index.yaml",
+            "relationships/shared_incidents/incident_template.yaml",
+        ])
 
     return list(dict.fromkeys(required_files))
 
@@ -248,7 +241,7 @@ def root() -> dict[str, Any]:
     return {
         "status": "ok",
         "project": PROJECT_SLUG,
-        "version": "3.0.3",
+        "version": "3.0.4",
         "actions_schema": "/openapi-actions.json",
         "health": "/health",
         "debug_volume": "/debug/volume",
@@ -257,7 +250,7 @@ def root() -> dict[str, Any]:
 
 @app.get("/health")
 def health() -> dict[str, Any]:
-    return {"success": True, "project": PROJECT_SLUG, "time": utc_now()}
+    return {"success": True, "project": PROJECT_SLUG, "version": "3.0.4", "time": utc_now()}
 
 
 @app.get("/debug/volume")
@@ -294,12 +287,7 @@ def get_turn_contract(session_id: str, req: TurnContractRequest) -> dict[str, An
             try:
                 contents[path] = trim(read_project_or_runtime_file(path, sid))
             except Exception as exc:
-                contents[path] = {
-                    "error": str(exc),
-                    "truncated": False,
-                    "chars": 0,
-                    "content": "",
-                }
+                contents[path] = {"error": str(exc), "truncated": False, "chars": 0, "content": ""}
 
     return {
         "success": True,
@@ -311,8 +299,11 @@ def get_turn_contract(session_id: str, req: TurnContractRequest) -> dict[str, An
         "required_file_contents": contents,
         "checks": [
             "Use current session runtime state, not old chat memory.",
-            "Load active characters by ID only.",
+            "Use engine/output_format.md for every play scene header and bottom blocks.",
+            "Akira and Livia are active in the first frame if current_state says so.",
+            "Load active, nearby, mentioned, scheduled and delayed characters by ID only.",
             "NPCs speak from their own knowledge, not hidden canon.",
+            "Track date, weekday, weather, clothing, body state and visible consequences.",
             "After a meaningful scene, call applyTurnResult or applyTurnResultSimple.",
         ],
     }
@@ -324,16 +315,10 @@ def apply_turn_result(session_id: str, req: ApplyTurnResultRequest) -> dict[str,
     state_root = session_state_root(sid)
 
     if req.technical:
-        append_jsonl(
-            session_root(sid) / "technical_history.jsonl",
-            {"time": utc_now(), "scene_id": req.scene_id, "text": req.scene_text},
-        )
+        append_jsonl(session_root(sid) / "technical_history.jsonl", {"time": utc_now(), "scene_id": req.scene_id, "text": req.scene_text})
         return {"success": True, "status": "technical_saved", "session_id": sid}
 
-    append_jsonl(
-        state_root / "scene_history.jsonl",
-        {"time": utc_now(), "scene_id": req.scene_id, "scene_text": req.scene_text},
-    )
+    append_jsonl(state_root / "scene_history.jsonl", {"time": utc_now(), "scene_id": req.scene_id, "scene_text": req.scene_text})
 
     patch_map = [
         ("current_state.json", req.current_state_changes),
@@ -343,7 +328,6 @@ def apply_turn_result(session_id: str, req: ApplyTurnResultRequest) -> dict[str,
         ("shared_incidents.json", req.shared_incident_changes),
         ("inventory_state.json", req.inventory_changes),
     ]
-
     updated = ["scene_history.jsonl"]
 
     for filename, patch in patch_map:
@@ -366,22 +350,14 @@ def apply_turn_result(session_id: str, req: ApplyTurnResultRequest) -> dict[str,
     compaction = read_json_state(sid, "compaction_state.json")
     compaction["total_game_turns"] = int(compaction.get("total_game_turns", 0) or 0) + 1
     compaction["since_last_compaction"] = int(compaction.get("since_last_compaction", 0) or 0) + 1
-    compaction["compact_every_turns"] = int(
-        compaction.get("compact_every_turns", COMPACT_EVERY_TURNS) or COMPACT_EVERY_TURNS
-    )
+    compaction["compact_every_turns"] = int(compaction.get("compact_every_turns", COMPACT_EVERY_TURNS) or COMPACT_EVERY_TURNS)
     compaction["needs_compaction"] = compaction["since_last_compaction"] >= compaction["compact_every_turns"]
     compaction["last_scene_id"] = req.scene_id
     compaction["updated_at"] = utc_now()
-
     write_state(sid, "compaction_state.json", compaction)
     updated.append("compaction_state.json")
 
-    return {
-        "success": True,
-        "session_id": sid,
-        "updated_files": updated,
-        "needs_compaction": compaction.get("needs_compaction", False),
-    }
+    return {"success": True, "session_id": sid, "updated_files": updated, "needs_compaction": compaction.get("needs_compaction", False)}
 
 
 @app.post("/api/v1/sessions/{session_id}/apply-turn-result-simple")
@@ -406,22 +382,17 @@ def apply_turn_result_simple(session_id: str, req: ApplyTurnResultSimpleRequest)
 @app.post("/api/v1/sessions/{session_id}/compact")
 def compact_session(session_id: str, req: CompactRequest) -> dict[str, Any]:
     sid, _ = ensure_session(session_id, reset=False)
-
     if req.recent_turns_md is not None:
         write_state(sid, "recent_turns.md", req.recent_turns_md)
-
     for filename, patch in req.state_updates.items():
         if isinstance(patch, dict) and filename.endswith(".json"):
             write_json_state(sid, filename, patch)
-
     compaction = read_json_state(sid, "compaction_state.json")
     compaction["last_compaction_at"] = utc_now()
     compaction["last_compaction_reason"] = req.reason
     compaction["since_last_compaction"] = 0
     compaction["needs_compaction"] = False
-
     write_state(sid, "compaction_state.json", compaction)
-
     return {"success": True, "session_id": sid, "status": "compacted"}
 
 
@@ -432,7 +403,6 @@ def read_session_state_file(session_id: str, filename: str) -> PlainTextResponse
         text = read_project_or_runtime_file(f"state/{safe_filename}", session_id)
     except Exception as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-
     return PlainTextResponse(text)
 
 
@@ -442,160 +412,24 @@ def read_file(file_path: str, session_id: str | None = None) -> PlainTextRespons
         text = read_project_or_runtime_file(safe_repo_path(file_path), session_id)
     except Exception as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-
     return PlainTextResponse(text)
 
 
 @app.get("/openapi-actions.json")
 def openapi_actions() -> dict[str, Any]:
     server = PUBLIC_BASE_URL or "https://your-service.up.railway.app"
-
     return {
         "openapi": "3.1.0",
-        "info": {"title": f"{PROJECT_SLUG} GPT Actions", "version": "3.0.3"},
+        "info": {"title": f"{PROJECT_SLUG} GPT Actions", "version": "3.0.4"},
         "servers": [{"url": server}],
         "paths": {
-            "/health": {
-                "get": {
-                    "operationId": "healthCheck",
-                    "summary": "Check API health",
-                    "responses": {"200": {"description": "OK"}},
-                }
-            },
-            "/debug/volume": {
-                "get": {
-                    "operationId": "debugVolume",
-                    "summary": "Check runtime volume",
-                    "responses": {"200": {"description": "OK"}},
-                }
-            },
-            "/api/v1/sessions": {
-                "post": {
-                    "operationId": "createSession",
-                    "summary": "Create a new runtime session",
-                    "requestBody": {
-                        "required": False,
-                        "content": {
-                            "application/json": {
-                                "schema": CreateSessionRequest.model_json_schema()
-                            }
-                        },
-                    },
-                    "responses": {"200": {"description": "Session created"}},
-                }
-            },
-            "/api/v1/sessions/{session_id}/turn-contract": {
-                "post": {
-                    "operationId": "getSessionTurnContract",
-                    "summary": "Get files and runtime state for one turn",
-                    "parameters": [
-                        {
-                            "name": "session_id",
-                            "in": "path",
-                            "required": True,
-                            "schema": {"type": "string"},
-                        }
-                    ],
-                    "requestBody": {
-                        "required": True,
-                        "content": {
-                            "application/json": {
-                                "schema": TurnContractRequest.model_json_schema()
-                            }
-                        },
-                    },
-                    "responses": {"200": {"description": "Turn contract"}},
-                }
-            },
-            "/api/v1/sessions/{session_id}/apply-turn-result": {
-                "post": {
-                    "operationId": "applyTurnResult",
-                    "summary": "Persist scene and state changes",
-                    "parameters": [
-                        {
-                            "name": "session_id",
-                            "in": "path",
-                            "required": True,
-                            "schema": {"type": "string"},
-                        }
-                    ],
-                    "requestBody": {
-                        "required": True,
-                        "content": {
-                            "application/json": {
-                                "schema": ApplyTurnResultRequest.model_json_schema()
-                            }
-                        },
-                    },
-                    "responses": {"200": {"description": "Saved"}},
-                }
-            },
-            "/api/v1/sessions/{session_id}/apply-turn-result-simple": {
-                "post": {
-                    "operationId": "applyTurnResultSimple",
-                    "summary": "Persist scene and state changes using JSON strings for GPT Actions",
-                    "parameters": [
-                        {
-                            "name": "session_id",
-                            "in": "path",
-                            "required": True,
-                            "schema": {"type": "string"},
-                        }
-                    ],
-                    "requestBody": {
-                        "required": True,
-                        "content": {
-                            "application/json": {
-                                "schema": ApplyTurnResultSimpleRequest.model_json_schema()
-                            }
-                        },
-                    },
-                    "responses": {"200": {"description": "Saved"}},
-                }
-            },
-            "/api/v1/sessions/{session_id}/compact": {
-                "post": {
-                    "operationId": "compactSessionMemory",
-                    "summary": "Persist memory compaction",
-                    "parameters": [
-                        {
-                            "name": "session_id",
-                            "in": "path",
-                            "required": True,
-                            "schema": {"type": "string"},
-                        }
-                    ],
-                    "requestBody": {
-                        "required": True,
-                        "content": {
-                            "application/json": {
-                                "schema": CompactRequest.model_json_schema()
-                            }
-                        },
-                    },
-                    "responses": {"200": {"description": "Compacted"}},
-                }
-            },
-            "/api/v1/sessions/{session_id}/state/{filename}": {
-                "get": {
-                    "operationId": "getSessionStateFile",
-                    "summary": "Read one runtime state file",
-                    "parameters": [
-                        {
-                            "name": "session_id",
-                            "in": "path",
-                            "required": True,
-                            "schema": {"type": "string"},
-                        },
-                        {
-                            "name": "filename",
-                            "in": "path",
-                            "required": True,
-                            "schema": {"type": "string"},
-                        },
-                    ],
-                    "responses": {"200": {"description": "State file"}},
-                }
-            },
+            "/health": {"get": {"operationId": "healthCheck", "summary": "Check API health", "responses": {"200": {"description": "OK"}}}},
+            "/debug/volume": {"get": {"operationId": "debugVolume", "summary": "Check runtime volume", "responses": {"200": {"description": "OK"}}}},
+            "/api/v1/sessions": {"post": {"operationId": "createSession", "summary": "Create a new runtime session", "requestBody": {"required": False, "content": {"application/json": {"schema": CreateSessionRequest.model_json_schema()}}}, "responses": {"200": {"description": "Session created"}}}},
+            "/api/v1/sessions/{session_id}/turn-contract": {"post": {"operationId": "getSessionTurnContract", "summary": "Get files and runtime state for one turn", "parameters": [{"name": "session_id", "in": "path", "required": True, "schema": {"type": "string"}}], "requestBody": {"required": True, "content": {"application/json": {"schema": TurnContractRequest.model_json_schema()}}}, "responses": {"200": {"description": "Turn contract"}}}},
+            "/api/v1/sessions/{session_id}/apply-turn-result": {"post": {"operationId": "applyTurnResult", "summary": "Persist scene and state changes", "parameters": [{"name": "session_id", "in": "path", "required": True, "schema": {"type": "string"}}], "requestBody": {"required": True, "content": {"application/json": {"schema": ApplyTurnResultRequest.model_json_schema()}}}, "responses": {"200": {"description": "Saved"}}}},
+            "/api/v1/sessions/{session_id}/apply-turn-result-simple": {"post": {"operationId": "applyTurnResultSimple", "summary": "Persist scene and state changes using JSON strings for GPT Actions", "parameters": [{"name": "session_id", "in": "path", "required": True, "schema": {"type": "string"}}], "requestBody": {"required": True, "content": {"application/json": {"schema": ApplyTurnResultSimpleRequest.model_json_schema()}}}, "responses": {"200": {"description": "Saved"}}}},
+            "/api/v1/sessions/{session_id}/compact": {"post": {"operationId": "compactSessionMemory", "summary": "Persist memory compaction", "parameters": [{"name": "session_id", "in": "path", "required": True, "schema": {"type": "string"}}], "requestBody": {"required": True, "content": {"application/json": {"schema": CompactRequest.model_json_schema()}}}, "responses": {"200": {"description": "Compacted"}}}},
+            "/api/v1/sessions/{session_id}/state/{filename}": {"get": {"operationId": "getSessionStateFile", "summary": "Read one runtime state file", "parameters": [{"name": "session_id", "in": "path", "required": True, "schema": {"type": "string"}}, {"name": "filename", "in": "path", "required": True, "schema": {"type": "string"}}], "responses": {"200": {"description": "State file"}}}},
         },
     }
