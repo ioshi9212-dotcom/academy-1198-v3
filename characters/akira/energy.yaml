@@ -1,3 +1,37 @@
 character_id: "char_akira"
-energy_type: null
-limitations: []
+schema: "character_energy_v1"
+
+public_status_at_start: "not_fully_confirmed_in_scene"
+energy_type: "spatial / container-like control"
+
+scene_visibility:
+  known_to_akira: "Akira may know she has an unusual spatial energy pattern only if current state or prior scene established it."
+  known_to_academy_staff: "Do not assume staff knows details unless loaded state or scene source confirms it."
+  known_to_other_students: "No. Other students should not know her energy details at start."
+
+usable_for_start_scene:
+  default: false
+  reason: "The Academy start should introduce access, rules and first pressure before energy demonstration."
+  allowed_if:
+    - "calendar/event explicitly requires energy check"
+    - "user chooses action involving energy"
+    - "NPC asks for controlled verification"
+    - "state says an energy issue is already active"
+
+core_notes:
+  - "Energy is logical but effective: describe consequences, limits and body/environment reactions."
+  - "Do not write decorative magic."
+  - "Do not use energy as an instant solution to every access or conflict problem."
+  - "Do not reveal hidden origin or hidden lore through energy description."
+
+limitations:
+  - "Requires control and situation awareness."
+  - "Should have cost, risk, delay, concentration or visible consequence when used."
+  - "Cannot be used to bypass every Academy system without consequence."
+  - "Should not harm or trap people unless the user explicitly drives that action and scene rules allow it."
+
+forbidden:
+  - "Do not start with a full power reveal."
+  - "Do not let NPCs identify the full type without a source."
+  - "Do not turn energy into author explanation."
+  - "Do not use hidden lore as active energy knowledge."
