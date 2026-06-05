@@ -9,6 +9,29 @@ calendar_rules:
   - "If the player asks to skip time, move to the nearest meaningful event after checking open threads and current state."
   - "Calendar events guide pressure and availability; current runtime state decides exact scene entry."
 
+calendar_reading_protocol:
+  selection:
+    - "Use current_state.current_day_id first."
+    - "If current_day_id is missing, use current_state.current_date."
+    - "For a normal scene, read only the current day block."
+    - "Do not load or summarize the whole calendar unless the user asks for calendar audit or time planning."
+  event_priority:
+    - "Hard required events block time skip until progressed or resolved."
+    - "Required events go before optional events."
+    - "Optional events can be used only if runtime state, open threads, pacing or player action supports them."
+  beat_usage:
+    - "Beats are scene pressure and order, not prose to copy."
+    - "summary is the event goal, not the text of the scene."
+    - "characters in a beat indicate who can enter or matter; they do not force everyone to speak immediately."
+    - "delayed or later characters become active only when the current beat reaches their entry or state moves them into scene."
+  completion:
+    - "After a scene, update current beat/event progress when meaningful."
+    - "If a blocking event progressed enough, update completion_status or open_threads."
+    - "Do not repeat the same entry beat after it is resolved."
+  improvisation:
+    - "Improvise details through location, character cards and state."
+    - "Do not create major calendar events without saving them as open thread or state change."
+
 days:
   academy_day_001:
     date: "1198-08-15"
@@ -20,26 +43,44 @@ days:
         type: "main"
         required: true
         title: "Первый день Академии"
+        scene_goal: "Ввести Акиру в Академию через действие: поток новичков, первичная сверка, первый маршрут, первые социальные крючки."
+        pressure: "Новая система смотрит, сортирует и ограничивает; Акира оценивает её снаружи спокойно, но внимательно."
         summary: "Акира и Ливия входят в Академию, проходят первичную сверку, видят правила через действие и получают первые социальные крючки."
         location_id: "loc_academy_main"
         required_characters: ["char_akira", "char_livia"]
         blocks_time_skip: true
         flexibility: "fixed"
         completion_status: "open"
+        entry_order:
+          - "char_akira and char_livia start as active if current_state says so."
+          - "char_kir enters after first entry pressure."
+          - "char_kiara gets first visible social trace after the field is visible."
+        completion_update:
+          - "first Academy entry pressure shown"
+          - "primary route or checkpoint clarified"
+          - "at least one social hook opened"
         beats:
           - beat_id: "beat_001_akira_livia_entry"
             characters: ["char_akira", "char_livia"]
+            scene_goal: "Показать вход не как очередь ради очереди, а как первое столкновение с системой и людьми."
+            pressure: "Поток новичков, сверка, взгляды, выбор позиции, первые ограничения."
             summary: "Акира и Ливия входят в поток новичков вместе; Ливия активна, но не говорит за Акиру."
           - beat_id: "beat_002_entry_check"
             characters: ["char_akira", "char_livia"]
+            scene_goal: "Показать порядок, доступ и ближайший маршрут через действие."
+            pressure: "Сверка или сотрудник требует простое действие, но по реакции людей видно, как работает контроль."
             summary: "Первичная сверка показывает порядок, доступ и ближайший маршрут через действие."
           - beat_id: "beat_003_kir_late_entry"
             characters: ["char_kir"]
             timing: "after first entry pressure"
+            scene_goal: "Ввести Кира как живого участника дня, а не справочную карточку."
+            pressure: "Он появляется позже, немного сбивая порядок регистрации или внимание вокруг."
             summary: "Кир появляется позже, будто задержался на регистрации или пришёл из другого потока."
           - beat_id: "beat_004_kiara_first_trace"
             characters: ["char_kiara"]
             timing: "after the Academy social field is visible"
+            scene_goal: "Дать Киаре первый социальный след без превращения её в справочник."
+            pressure: "Киара заметна как человек, вокруг которого уже есть внимание и позиция."
             summary: "Киара получает первый социальный след как заметная курсантка и будущая соперница Ливии."
         possible_later_same_day:
           - character_id: "char_haru"
@@ -50,6 +91,8 @@ days:
       - event_id: "event_uniform_and_dorm_assignment"
         type: "academy_logistics"
         title: "Форма и заселение"
+        scene_goal: "Показать бытовые правила Академии через выдачу, размещение и социальное распределение."
+        pressure: "Очереди, размеры формы, комнаты, чужие взгляды, первый быт."
         summary: "Выдача формы, размещение, первые бытовые правила и социальное распределение."
         allowed_if: "after event_academy_start progresses"
     forbidden: []
@@ -63,6 +106,8 @@ days:
         type: "training"
         required: true
         title: "Первичные физические проверки"
+        scene_goal: "Проверить тело, реакцию, выносливость и первые инструкторские пометки."
+        pressure: "Результаты видят не только инструкторы; первые сравнения формируют репутацию."
         summary: "Проверка реакции, выносливости, контроля тела, допусков и первых инструкторских пометок."
         required_characters: ["char_akira"]
         optional_characters: ["char_livia", "char_kir", "char_haru", "char_raiden", "char_kiara"]
@@ -79,6 +124,8 @@ days:
       - event_id: "event_basketball_social_court"
         type: "social_training"
         title: "Площадка как социальная арена"
+        scene_goal: "Показать связки, вызовы, репутацию и живую социальную механику Академии."
+        pressure: "Спорт становится способом смотреть, выбирать сторону и проверять характер."
         summary: "Баскетбол показывает связки, репутацию, вызовы и то, что спорт в Академии не просто игра."
         optional_characters: ["char_akira", "char_livia", "char_kir", "char_haru", "char_raiden", "char_kiara"]
     forbidden: []
@@ -92,6 +139,8 @@ days:
         type: "training"
         required: true
         title: "Учебная проверка дистанции"
+        scene_goal: "Поставить Акиру и Райдена в учебный формат без романтического центра сцены."
+        pressure: "Инструкторы смотрят на контроль, дистанцию, реакцию и то, что заметят."
         summary: "Академия ставит Акиру и Райдена в учебный формат; важны реакция, контроль и то, что заметят инструкторы."
         required_characters: ["char_akira", "char_raiden"]
         optional_characters: ["char_haru", "char_livia"]
@@ -108,6 +157,8 @@ days:
         type: "team_training"
         required: true
         title: "Парная проверка"
+        scene_goal: "Проверить ритм и контроль в паре через учебную задачу."
+        pressure: "Это учебная реакция тела и контроля, а не объяснение чувств."
         summary: "После проверки друг против друга Академия ставит Акиру и Райдена в пару; это не романтика, а учебная реакция тела, ритма и контроля."
         required_characters: ["char_akira", "char_raiden"]
         optional_characters: ["char_haru", "char_livia"]
@@ -124,6 +175,8 @@ days:
       - event_id: "event_livia_pulls_akira_out"
         type: "social"
         title: "Свободное время с социальным давлением"
+        scene_goal: "Показать Ливию самостоятельной социальной силой, а не прицепом."
+        pressure: "Свободное время тоже создаёт выбор: внимание, конфликт, флирт, слухи, усталость."
         summary: "Ливия проявляет самостоятельную инициативу; Киара может усилить конфликт внимания; Хару может пересечься с Акирой через живой отдых."
         optional_characters: ["char_akira", "char_livia", "char_kiara", "char_haru"]
     forbidden: []
@@ -137,6 +190,8 @@ days:
       - event_id: "event_neya_drawing_node"
         type: "character_node"
         title: "Рисунок и публичная неловкость"
+        scene_goal: "Создать тихий персонажный узел через наблюдение, рисунок или неловкую публичность."
+        pressure: "Маленькое действие становится заметнее, чем должно было."
         summary: "Тихий персонажный узел через рисунок, наблюдение или сцену у учебного корпуса; Хару раскрывается как неидеальный человек."
         optional_characters: ["char_akira", "char_haru", "char_livia"]
     forbidden: []
@@ -150,6 +205,8 @@ days:
         type: "system_character_node"
         required: true
         title: "Праздник с холодным краем"
+        scene_goal: "Показать личный день как системное давление, а не обычный праздник."
+        pressure: "Семейная и статусная линия давит на социальное поле Академии."
         summary: "Райдену исполняется 18; Самуэль появляется как важная системная фигура и усиливает семейное давление."
         required_characters: ["char_raiden", "char_haru", "char_samuel"]
         optional_characters: ["char_akira", "char_livia", "char_kiara"]
@@ -166,6 +223,8 @@ days:
         type: "social_past_node"
         required: true
         title: "Старшие возвращаются в кампус"
+        scene_goal: "Вернуть старшие линии и старые связи через действие в кампусе."
+        pressure: "Прошлое не объясняется справкой — оно входит через людей, реакции и слухи."
         summary: "Ашер и Кай возвращаются к обучению; старые линии Ливии и Акиры получают сценическое основание."
         required_characters: ["char_akira", "char_livia"]
         optional_characters: ["char_kael", "char_kai", "char_asher", "char_haru", "char_raiden"]
@@ -182,6 +241,8 @@ days:
       - event_id: "event_rating_board"
         type: "reputation"
         title: "Рейтинги после августовских проверок"
+        scene_goal: "Показать, как действия превращаются в публичную репутацию."
+        pressure: "Цифры, слухи и взгляды начинают работать вместо прямых обвинений."
         summary: "Обновление рейтингов, публичное внимание и новые поводы для соперничества."
         optional_characters: ["char_akira", "char_livia", "char_kiara", "char_haru", "char_raiden"]
     forbidden: []
@@ -195,6 +256,8 @@ days:
         type: "field_training"
         required: true
         title: "Учебный выезд"
+        scene_goal: "Вывести группу из безопасной аудитории в контролируемое поле."
+        pressure: "Связь, ориентация, напарники, контроль зоны и эвакуация важнее красивого боя."
         summary: "Малые группы выводят на внешний учебный полигон: ориентация, связь, контроль зоны, эвакуация и работа с условной угрозой."
         required_characters: ["char_akira"]
         optional_characters: ["char_livia", "char_kir", "char_haru", "char_raiden"]
@@ -211,6 +274,8 @@ days:
         type: "pressure_training"
         required: true
         title: "Ночной учебный сигнал"
+        scene_goal: "Проверить сбор, реакцию и командное движение через внезапность."
+        pressure: "Сон, темнота, скорость и ошибки других становятся частью проверки."
         summary: "Выбранные группы поднимают ночью: быстро собраться, добраться до точки, не потерять напарника, не сорваться."
         required_characters: ["char_akira"]
         optional_characters: ["char_livia", "char_kir", "char_haru", "char_raiden"]
@@ -227,6 +292,8 @@ days:
       - event_id: "event_public_demonstration_block"
         type: "public_training"
         title: "Показательные связки"
+        scene_goal: "Показать, как публичный формат меняет риск, внимание и репутацию."
+        pressure: "Ошибку видят все; удача тоже становится слухом."
         summary: "Публичные спарринги и связки перед курсом; внимание, рейтинг и репутация резко меняются."
         optional_characters: ["char_akira", "char_livia", "char_kiara", "char_haru", "char_raiden"]
     forbidden: []
@@ -240,6 +307,8 @@ days:
         type: "field_pressure"
         required: true
         title: "Учебный выезд идёт не по плану"
+        scene_goal: "Дать полевое давление без полного раскрытия большого лора."
+        pressure: "Контролируемое перестаёт быть полностью контролируемым."
         summary: "Контролируемый внешний участок получает нестабильный след; это ещё не полноценное раскрытие лора, но уже достаточно страшно."
         required_characters: ["char_akira"]
         optional_characters: ["char_livia", "char_kir", "char_haru", "char_raiden", "char_samuel"]
@@ -256,6 +325,8 @@ days:
         type: "consequence"
         required: true
         title: "Рейтинги, допуски, слухи и переходы"
+        scene_goal: "Собрать последствия месяца и перенести открытые линии дальше."
+        pressure: "Решения, слухи, допуски и ошибки начинают иметь видимые последствия."
         summary: "Рейтинговый пересчёт, изменение допусков, закрепление слухов и перенос открытых линий в следующий месяц."
         required_characters: ["char_akira"]
         optional_characters: ["char_livia", "char_kir", "char_haru", "char_raiden", "char_kiara", "char_samuel"]

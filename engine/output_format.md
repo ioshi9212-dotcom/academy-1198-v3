@@ -1,8 +1,16 @@
 # Output Format
 
-Use a short scene header. Do not stretch it.
+This file is the strict response format for play scenes.
+
+## Priority
+
+This format has highest priority for scene output.
+
+If the answer is not in this format, rewrite it before sending.
 
 ## Header
+
+Every play scene starts with a short header.
 
 ```text
 ━━━━━━━━━━━━━━━━━━━━
@@ -14,18 +22,26 @@ Use a short scene header. Do not stretch it.
 ━━━━━━━━━━━━━━━━━━━━
 ```
 
+The exact values must come from `current_state` and `scene_contract.current_frame`.
+
 ## Header rules
 
 Keep the header compact.
 
-Write only useful current facts.
+Required data:
+
+- date + day of week + time;
+- location;
+- weather;
+- short POV state;
+- nearby/active characters only if they are actually present according to state.
 
 Do not list absent items.
 
 Bad:
 
 ```text
-🎒 В руках: ничего. В карманах: ничего. Оружия нет. Сумки нет.
+В руках ничего. В карманах ничего. Оружия нет.
 ```
 
 Good:
@@ -34,51 +50,83 @@ Good:
 🎒 Сумка через плечо, документы новичка
 ```
 
-If there is nothing relevant in hands or nearby, omit the item line completely.
-
-## Required header fields
-
-Always include:
-
-- date;
-- day of week;
-- time;
-- location;
-- weather;
-- Akira's current physical/clothing state if relevant;
-- nearby active characters if relevant.
-
-Optional lines:
-
-- items;
-- injuries;
-- visible access status;
-- immediate pressure.
-
-Optional means: write it only if it matters now.
+If no relevant item is present, omit the item line.
 
 ## Scene body
 
-After the header, write the visible scene through Akira's POV.
+Scene body is written through visible POV.
 
-Do not write NPC thoughts.
-Do not write Akira's forced decision.
-Do not explain hidden lore.
+Use 3-5 scene beats for a meaningful scene:
+
+1. environment or Academy system in motion;
+2. what the POV character notices;
+3. visible reaction/action from active or nearby characters;
+4. pressure, conflict, rule, schedule, access, reputation or relationship movement;
+5. stop point where the player can intervene.
+
+Do not stop after pure scenery.
+
+Do not write a scene that is only:
+
+- weather;
+- one decorative paragraph;
+- "what does Akira do?" with no pressure.
+
+## Descriptions
+
+Descriptions, actions and atmosphere go as separate italic paragraphs.
+
+```text
+*Ветер тянет по двору запах влажного бетона и металла. Несколько студентов в бордовой форме задерживают взгляд на белых волосах Акиры.*
+```
 
 ## Dialogue
 
-Use known names only after Akira knows them.
+Dialogue format is strict:
 
-Before that, use visible descriptors:
+```text
+**Имя или видимый дескриптор** — Реплика. (*короткая ремарка: тон, взгляд, пауза, жест*)
+```
 
-- `высокий рыжий курсант`;
-- `светловолосая курсантка`;
-- `небрежный парень с кривой улыбкой`;
-- `сотрудник на сверке`.
+Rules:
 
-## Bottom blocks
+- speaker name/descriptor is always bold;
+- use a long dash after speaker;
+- dialogue text is plain;
+- stage note is optional and short;
+- do not put long actions in parentheses;
+- do not put thoughts in parentheses;
+- if POV does not know a name, use a visible descriptor.
 
-Use short bottom blocks:
+## Known names
+
+Use known names only when POV already knows them.
+
+Unknown character examples:
+
+- `рыжий студент`;
+- `девушка с планшетом`;
+- `высокий тёмноволосый парень`;
+- `сотрудник сверки`.
+
+## Thoughts
+
+Do not write direct inner thoughts inside the scene body.
+
+Wrong:
+
+```text
+Акира подумала, что это слишком спокойно.
+```
+
+Right:
+
+- show face, breath, pause, attention in the scene;
+- put real thoughts only in the bottom block.
+
+## Ending block
+
+Every play scene ends with:
 
 ```text
 ━━━━━━━━━━━━━━━━━━━━
@@ -99,37 +147,23 @@ Use short bottom blocks:
 ━━━━━━━━━━━━━━━━━━━━
 ```
 
-The bottom blocks are suggestions, not buttons.
+Use 2-4 action options.
 
-The user may ignore them, combine them, rewrite them or choose a completely different action.
+Use 2-4 short speech options.
 
-## Akira thoughts
+Thoughts must be short, concrete and in character.
 
-Akira's thoughts are allowed to disagree with the player's action.
+## Self-check before sending
 
-The player controls the chosen action.
+Before sending, check:
 
-Akira remains a character with body, history, preferences, fear, anger, disgust, hesitation, irritation and private resistance.
-
-This means:
-
-- the player may choose an action;
-- Akira may internally hate it, doubt it, feel wrong doing it, or feel consequences from it;
-- the engine must not turn Akira into a blank doll;
-- the engine must not use Akira's thoughts to cancel the player's action unless the action is physically impossible or violates established state.
-
-Example:
-
-User action: Akira cuts her hair.
-
-Valid result:
-- the action happens if possible;
-- hair state changes;
-- NPCs react;
-- Akira may feel shock, anger, numbness, relief or regret;
-- future scenes remember the new hair length.
-
-Invalid result:
-- the engine ignores the haircut next scene;
-- Akira has no inner reaction;
-- everyone behaves as if nothing changed.
+- header exists;
+- header is short;
+- date/day/time/location/weather came from state;
+- active/nearby characters were not omitted without reason;
+- body has 3-5 meaningful beats unless this is a pure transition;
+- dialogue uses bold speaker + long dash;
+- descriptions are italic separate paragraphs;
+- no NPC thoughts as facts;
+- no direct POV thoughts inside scene body;
+- bottom blocks exist.
