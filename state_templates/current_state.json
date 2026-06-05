@@ -29,6 +29,8 @@
   "active_character_ids": ["char_akira", "char_livia"],
   "nearby_character_ids": [],
   "mentioned_character_ids": [],
+  "scheduled_character_ids": [],
+  "delayed_character_ids": ["char_kir", "char_kiara"],
 
   "character_status": {
     "char_akira": {
