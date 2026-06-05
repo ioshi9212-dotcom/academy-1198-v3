@@ -1,0 +1,88 @@
+character_id: "char_haru"
+schema: "character_knowledge_v1"
+
+start_frame:
+  date: "1198-08-15"
+  day_id: "academy_day_001"
+  location_id: "loc_academy_main"
+  arc_id: "arc_001_academy_start"
+
+knows:
+  - id: "knows_academy_system_as_student"
+    text: "Хару знает Академию как студент, сильный носитель и заметный участник социальной среды: проверки, рейтинги, слухи и репутация влияют на отношение к человеку."
+    source: "academy-1198 canon / prequel canon"
+    usable_in_scene: true
+
+  - id: "knows_raiden_as_closest_friend"
+    text: "Хару знает Райдена как ближайшего друга: холод, дистанцию, привычку молчать, баскетбол, тяжёлую реакцию на фамилию, тему матери и женские прикосновения."
+    source: "academy-1198 canon"
+    usable_in_scene: true
+
+  - id: "knows_raiden_family_pressure_public_private_part"
+    text: "Хару знает часть семейного давления Райдена: Самуэль — брат Райдена по отцу, отец влиятельный, статус семьи неприятен Райдену, тема матери болезненна."
+    source: "academy-1198 canon"
+    usable_in_scene: true
+
+  - id: "knows_own_heat_risk"
+    text: "Хару знает, что его жар может сорваться при эмоциях, а тренировки с энергией могут быть опасными."
+    source: "academy-1198 canon"
+    usable_in_scene: true
+
+  - id: "knows_mother_died_in_school_fire"
+    text: "Хару знает, что его мать погибла в школьном пожаре. Это личная боль, не обычная справка."
+    source: "academy-1198 canon"
+    usable_in_scene: false
+
+  - id: "knows_livia_as_bright_newcomer_if_seen"
+    text: "Хару может видеть Ливию как яркую, шумную, флиртующую девушку и легко отвечать на её тон."
+    source: "scene observation"
+    usable_in_scene: true
+
+  - id: "knows_kiara_publicly"
+    text: "Хару знает Киару как заметную курсантку социальной орбиты Академии, которая умеет играть вниманием."
+    source: "prequel canon / scene social field"
+    usable_in_scene: true
+
+suspects:
+  - id: "suspects_raiden_reacts_to_akira_strangely"
+    text: "Если Хару видит реакцию Райдена на Акиру, он может догадаться, что Райден реагирует страннее обычного."
+    source: "scene observation"
+    usable_in_scene: true
+
+  - id: "suspects_akira_hides_power"
+    text: "Хару может заподозрить, что Акира опаснее, чем показывает, если сцена даёт наблюдения."
+    source: "scene observation"
+    usable_in_scene: true
+
+  - id: "suspects_livia_can_misread_attention"
+    text: "Хару может не сразу понять, что его флирт или внимание становятся для Ливии серьёзнее, чем он думал."
+    source: "relationship dynamic"
+    usable_in_scene: true
+
+wrong_beliefs:
+  - id: "believes_joke_can_patch_pain"
+    text: "Хару иногда ошибочно думает, что шуткой можно быстро закрыть боль или напряжение."
+
+  - id: "believes_smile_can_fix_too_much"
+    text: "Хару может быть слишком уверен, что улыбка и движение быстро исправят неловкость."
+
+does_not_know:
+  - id: "no_akira_hidden_lore"
+    text: "Хару не знает истинную природу Акиры, связь с Наблюдателем, скрытую природу её пространства и полный масштаб силы."
+
+  - id: "no_raiden_hidden_nature"
+    text: "Хару не знает скрытую природу Райдена, гибридность и настоящую правду о матери Райдена."
+
+  - id: "no_akira_raiden_hidden_link"
+    text: "Хару не знает скрытую связь Акиры и Райдена и не понимает её механизм."
+
+  - id: "no_samuel_hidden_plans"
+    text: "Хару не знает скрытые планы Самуэля и закрытые линии взрослых персонажей без сценического основания."
+
+  - id: "no_kir_school_triangle_until_source"
+    text: "Хару не знает старую школьную динамику Акиры, Ливии и Кира без рассказа, наблюдения или слуха."
+
+scene_limits:
+  - "Haru's guesses stay human, emotional and incomplete."
+  - "Do not use Haru as an explanation device for hidden lore."
+  - "Do not reveal family trauma unless the scene has a reason."

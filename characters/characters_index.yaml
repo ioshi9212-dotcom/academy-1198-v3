@@ -28,6 +28,13 @@ characters:
     known_label: "Киара"
     unknown_label: "высокая светловолосая курсантка"
 
+  char_haru:
+    folder: "characters/haru/"
+    main_file: "characters/haru/character_card.yaml"
+    aliases: ["Хару Фостер"]
+    known_label: "Хару"
+    unknown_label: "высокий рыжий курсант"
+
   char_raiden:
     folder: "characters/raiden/"
     main_file: "characters/raiden/character_card.yaml"
