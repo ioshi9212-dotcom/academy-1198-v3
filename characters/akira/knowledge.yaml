@@ -9,7 +9,7 @@ start_frame:
 
 knows:
   - id: "knows_entering_academy"
-    text: "Акира знает, что входит в Академию 1198 и находится в стартовой академической зоне."
+    text: "Акира знает, что поступает/входит в Академию 1198 и находится в стартовой академической зоне."
     source: "current start frame"
     usable_in_scene: true
 
@@ -33,6 +33,61 @@ knows:
     source: "visible environment"
     usable_in_scene: true
 
+  - id: "knows_jun_as_father"
+    text: "Джун Картер — отец Акиры по её текущему пониманию."
+    source: "old 1198 canon"
+    usable_in_scene: false
+
+  - id: "knows_ray_as_brother"
+    text: "Рэй Картер — брат Акиры по её текущему пониманию."
+    source: "old 1198 canon"
+    usable_in_scene: false
+
+  - id: "knows_white_hair_reactions"
+    text: "Акира знает, что её чисто белые волосы всегда вызывали у людей необычные реакции: страх, шёпот, интерес, попытки потрогать, версии про кайросов или окрашивание."
+    source: "old 1198 canon / school past"
+    usable_in_scene: true
+
+  - id: "knows_hair_boundary_case"
+    text: "Акира помнит школьный случай: парень потрогал её волосы без разрешения, и она вывернула ему руку до вывиха. Для неё волосы — граница, а не милая деталь."
+    source: "old 1198 canon / school past"
+    usable_in_scene: true
+
+  - id: "knows_livia_part_of_school_past"
+    text: "Ливия знает часть школьного прошлого и бытовых привычек Акиры, но не всё внутреннее и не hidden lore."
+    source: "old 1198 canon"
+    usable_in_scene: true
+
+  - id: "knows_school_fire_personal_experience"
+    text: "Акира помнит школьный пожар, жар, дым, отрезанный класс, первое использование 'водопада' как пространственной среды и то, что она не смогла спасти учительницу."
+    source: "old 1198 canon / personal experience"
+    usable_in_scene: false
+
+  - id: "knows_space_is_unusual"
+    text: "Акира понимает, что её способность необычная, не похожа на стандартный тип энергии, и для себя может ощущать её как среду, поток, давление и переход."
+    source: "old 1198 canon / power file"
+    usable_in_scene: true
+
+  - id: "knows_partial_space_actions"
+    text: "Акира знает часть своих пространственных действий: 'водопад', личный карман пространства, контур вокруг себя, точечное влияние на движение, дистанцию, устойчивость и траекторию."
+    source: "old 1198 canon / power file"
+    usable_in_scene: true
+
+  - id: "knows_sensor_response_can_be_intentional"
+    text: "Акира знает, что может специально дать энергетический отклик, если хочет, чтобы воздействие считалось, ощущалось или фиксировалось как энергия."
+    source: "old 1198 canon / power file"
+    usable_in_scene: true
+
+  - id: "knows_behavior_masks"
+    text: "Акира знает, что у неё есть две наружные маски поведения после истории с Каем: холодная и хаотичная ядовитая. Маску выбирает игрок/сцена."
+    source: "old 1198 canon / variants"
+    usable_in_scene: true
+
+  - id: "knows_basic_habits"
+    text: "Акира пьёт кофе без сахара, не любит чай и сладкое, хорошо играет в баскетбол и может быть раздражительнее от голода."
+    source: "old 1198 canon / habits"
+    usable_in_scene: true
+
 suspects:
   - id: "suspects_system_has_weak_points"
     text: "Акира предполагает, что любая система контроля имеет слабые места, привычки персонала и зоны невнимательности."
@@ -44,7 +99,30 @@ suspects:
     source: "behavior pattern"
     usable_in_scene: true
 
-wrong_beliefs: []
+  - id: "suspects_jun_knows_more"
+    text: "Акира подозревает, что Джун знает больше, чем говорит, и что в семейной истории есть скрытая часть."
+    source: "old 1198 canon"
+    usable_in_scene: false
+
+  - id: "suspects_energy_check_was_wrong"
+    text: "Акира подозревает, что со стандартной проверкой энергии было что-то не так."
+    source: "old 1198 canon"
+    usable_in_scene: false
+
+  - id: "suspects_power_not_standard"
+    text: "Акира подозревает, что её 'водопад' и пространственная среда не являются стандартной способностью носителя энергии."
+    source: "old 1198 canon"
+    usable_in_scene: true
+
+wrong_beliefs:
+  - id: "believes_jun_biological_father"
+    text: "Акира ошибочно считает Джуна Картера своим биологическим отцом."
+
+  - id: "believes_ray_just_brother"
+    text: "Акира ошибочно считает Рэя Картера просто братом, а не сводным братом."
+
+  - id: "explains_power_without_true_source"
+    text: "Акира может объяснять способность как редкую пространственную аномалию или необычную среду без знания истинного источника."
 
 does_not_know:
   - id: "no_hidden_lore"
@@ -59,11 +137,21 @@ does_not_know:
   - id: "no_future_relationships"
     text: "Акира не знает будущие связи, конфликты и роли персонажей, пока они не проявлены в сцене."
 
-  - id: "no_complex_personal_lore_active"
-    text: "Сложные личные тайны, скрытая память и глубокие связи не являются активным знанием Акиры на стартовой сцене."
+  - id: "no_true_origin_of_power"
+    text: "Акира не знает истинную природу своей силы, её источник и связь с Наблюдателем."
+
+  - id: "no_full_echo_mechanism"
+    text: "Акира не знает полный механизм связи пространства, среды и Эхо, полный предел возможностей и полную цену взаимодействия с Эхо."
+
+  - id: "no_foster_teacher_link"
+    text: "Акира не знает на старте, что погибшая учительница была матерью Хару и Ханы Фостер, если это не раскрыто сценой."
+
+  - id: "no_raiden_hidden_link"
+    text: "Акира не знает hidden-связь с Райденом и не должна осознанно понимать её причину без отдельного сюжетного основания."
 
 scene_limits:
   - "Do not use this file to give Akira author-level explanations."
   - "Do not let NPCs know Akira's hidden details without a loaded source."
   - "Do not reveal future arcs through Akira's thoughts."
   - "Use visible POV and current state first."
+  - "Personal past can affect body reactions, boundaries and behavior, but should not become exposition unless the scene earns it."
