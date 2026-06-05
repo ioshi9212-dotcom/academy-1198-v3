@@ -1,8 +1,0 @@
-location_id: "loc_eastern_sector"
-display_name: "Eastern Sector"
-files:
-  visual: "visual_description.md"
-  rules: "rules.md"
-  zones: "zones.md"
-  daily_life: "daily_life.md"
-  hooks: "scene_hooks.md"
