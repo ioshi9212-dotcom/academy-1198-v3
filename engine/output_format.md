@@ -10,33 +10,44 @@ If the answer is not in this format, rewrite it before sending.
 
 ## Header
 
-Every play scene starts with a short header.
+Every play scene starts with this emoji header format.
+
+Use values from:
+
+- `scene_contract.current_frame.header_values`;
+- `scene_contract.header_contract`;
+- `current_state`.
 
 ```text
-━━━━━━━━━━━━━━━━━━━━
-📅 1198-08-15, суббота | 🕒 08:40
-📍 Академия Астрейн, главный вход
-☁️ Переменная облачность, +22°C, сухо
-🫀 Акира: собрана, без травм
-👥 Рядом: Ливия
-━━━━━━━━━━━━━━━━━━━━
+📅 19 августа пн 1198
+🕒 Утро, около 10:38
+📍 Место: Академия Астрейн, зона I-2 тренировочного блока
+🌧 Погода: ясное августовское утро
+🫀 Состояние Акиры: после воды дыхание ровное; ноги, плечи и руки устали, но состояние рабочее
+🎒 При себе / рядом: пластина комнаты, ремень допуска D, телефон, резинка, экран инструктажа
 ```
-
-The exact values must come from `current_state` and `scene_contract.current_frame`.
 
 ## Header rules
 
-Keep the header compact.
+Required lines:
 
-Required data:
+1. `📅 {date_human}`
+2. `🕒 {time_human}`
+3. `📍 Место: {location_human}`
+4. `🌤/🌧/☁️ Погода: {weather_human}`
+5. `🫀 Состояние Акиры: {pov_state_human}`
+6. `🎒 При себе / рядом: {context_human}` only if there is something useful to list.
 
-- date + day of week + time;
-- location;
-- weather;
-- short POV state;
-- nearby/active characters only if they are actually present according to state.
+Do not write English location names if a Russian header name exists.
 
 Do not list absent items.
+
+Keep the `🎒` line short. It may include:
+
+- carried items;
+- nearby active characters;
+- important objects in the scene;
+- relevant screens, markers, counters, doors, lines, zones.
 
 Bad:
 
@@ -47,10 +58,10 @@ Bad:
 Good:
 
 ```text
-🎒 Сумка через плечо, документы новичка
+🎒 При себе / рядом: телефон, резинка, Ливия, стойки сверки, указатели
 ```
 
-If no relevant item is present, omit the item line.
+If no relevant item/object/person is present, omit the `🎒` line.
 
 ## Scene body
 
@@ -77,7 +88,7 @@ Do not write a scene that is only:
 Descriptions, actions and atmosphere go as separate italic paragraphs.
 
 ```text
-*Ветер тянет по двору запах влажного бетона и металла. Несколько студентов в бордовой форме задерживают взгляд на белых волосах Акиры.*
+*Поток новичков сужается у стоек сверки. На экранах мигают номера секций, и каждая задержка сразу становится заметной.*
 ```
 
 ## Dialogue
@@ -157,9 +168,10 @@ Thoughts must be short, concrete and in character.
 
 Before sending, check:
 
-- header exists;
-- header is short;
-- date/day/time/location/weather came from state;
+- emoji header exists;
+- header uses the exact line style from this file;
+- date/day/time/location/weather came from state or scene_contract;
+- location is not an English fallback if Russian name exists;
 - active/nearby characters were not omitted without reason;
 - body has 3-5 meaningful beats unless this is a pure transition;
 - dialogue uses bold speaker + long dash;

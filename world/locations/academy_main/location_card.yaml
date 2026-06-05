@@ -1,4 +1,17 @@
 location_id: "loc_academy_main"
-display_name: "Academy Main"
+display_name: "Академия Астрейн"
+short_name: "входная зона"
+header_name: "Академия Астрейн, входная зона"
+header_context: "Ливия, поток новичков, стойки сверки, указатели"
+
 files:
   visual: "visual_description.md"
+
+scene_usage:
+  start_location: true
+  can_be_header_location: true
+  header_rule: "Use header_name for scene headers, not location_id and not English fallback."
+
+notes:
+  - "Главная стартовая зона Академии."
+  - "Не роскошная и не тюремная: рабочая, строгая, живая."

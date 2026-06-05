@@ -1,0 +1,24 @@
+{
+  "patch_name": "academy-1198-v3_patch_compact_header",
+  "created_at": "2026-06-05T15:26:14.928904+00:00",
+  "target_repo": "ioshi9212-dotcom/academy-1198-v3",
+  "recommended_commit": "Fix compact turn contract and scene header",
+  "api_version": "3.1.1",
+  "files": [
+    "app/main.py",
+    "engine/output_format.md",
+    "world/locations/academy_main/location_card.yaml",
+    "gpt/custom_gpt_instructions.md",
+    "PATCH_README_COMPACT_HEADER.md",
+    "PATCH_MANIFEST_COMPACT_HEADER.json"
+  ],
+  "fixes": [
+    "include_file_contents defaults to false",
+    "safe user_input default",
+    "scene_contract.header_contract",
+    "human header values",
+    "Russian location header name",
+    "query-based getProjectFileByQuery endpoint",
+    "updated technical GPT instruction"
+  ]
+}
