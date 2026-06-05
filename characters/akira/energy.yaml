@@ -1,17 +1,72 @@
 character_id: "char_akira"
 schema: "character_energy_v1"
 
-public_status_at_start: "not_fully_confirmed_in_scene"
-energy_type: "spatial / container-like control"
+public_status_at_start: "rare_spatial_type_perceived_by_academy"
+energy_type: "spatial / medium-like control"
+
+public_perception:
+  academy_frame: "В Академии способность Акиры может восприниматься как редкий пространственный тип энергии."
+  not_public_to_students: "Другие студенты не должны знать детали её силы без сцены, проверки или слуха с источником."
+
+true_nature:
+  status: "hidden_lore"
+  note: "Пространство Акиры не является обычной энергией в полном смысле, но Акира не знает истинный источник и связь с Наблюдателем."
+  scene_rule: "Do not reveal this through narration, NPC speech or sensor explanation without earned source."
 
 scene_visibility:
-  known_to_akira: "Akira may know she has an unusual spatial energy pattern only if current state or prior scene established it."
-  known_to_academy_staff: "Do not assume staff knows details unless loaded state or scene source confirms it."
+  known_to_akira:
+    - "Она понимает, что способность необычная и не похожа на стандартный тип энергии."
+    - "Она ощущает её как среду: поток, давление, переход, пространство вокруг себя и точку приложения."
+    - "Для себя может формулировать это как: 'среда, не энергия', но без знания истинного источника."
+  known_to_academy_staff: "Do not assume staff knows full details unless loaded state or scene source confirms it."
   known_to_other_students: "No. Other students should not know her energy details at start."
+
+sensor_logic:
+  - "Если Акира использует пространство как среду, обычные датчики могут не реагировать."
+  - "Чтобы датчики зафиксировали воздействие, она должна намеренно дать энергетический отклик."
+  - "Не использовать это как безлимитный обход системы: Академия может заметить последствия, несостыковки, реакцию людей или нарушение процедуры."
+
+known_actions:
+  waterfall:
+    description: "'Водопад' — личное ощущение пространственной среды, потока, давления и перехода; не вода и не водная стихия."
+    start_use: "Не применять без действия пользователя, проверки или сценического основания."
+
+  pocket_space:
+    description: "Скрытое личное пространство/хранилище; предмет должен быть заранее закреплён."
+    start_use: "Окружающие не знают, если Акира не раскрыла."
+
+  personal_contour:
+    description: "Контур вокруг себя: может отличаться толщиной, плотностью, радиусом, направлением, точкой приложения, длительностью и мягкостью."
+    limits:
+      - "Не абсолютная броня."
+      - "Может смягчить удар, перенести часть внешнего воздействия, стабилизировать движение или дать долю секунды."
+
+  local_field:
+    description: "Точечное влияние вокруг себя, другого человека или группы: траектория, дистанция, устойчивость, внешний импульс."
+    limits:
+      - "Не контроль сознания."
+      - "Не универсальная остановка людей."
+
+  ally_stabilization:
+    description: "Стабилизация союзника: равновесие, траектория, реакция, движение."
+    limits:
+      - "Не лечение."
+      - "Не управление волей."
+
+  echo_interaction:
+    description: "Может взаимодействовать с Эхо, но не знает полного предела и цены."
+    start_use: "Не использовать на старте Академии без календарного/сюжетного основания."
+
+visible_effects:
+  - "звук глохнет на долю секунды"
+  - "предмет оказывается не там, где ожидали"
+  - "траектория ломается"
+  - "угол атаки теряется"
+  - "движение выглядит неправильным, но не декоративно-магическим"
 
 usable_for_start_scene:
   default: false
-  reason: "The Academy start should introduce access, rules and first pressure before energy demonstration."
+  reason: "The Academy start should introduce access, rules and first pressure before any full energy demonstration."
   allowed_if:
     - "calendar/event explicitly requires energy check"
     - "user chooses action involving energy"
@@ -29,9 +84,12 @@ limitations:
   - "Should have cost, risk, delay, concentration or visible consequence when used."
   - "Cannot be used to bypass every Academy system without consequence."
   - "Should not harm or trap people unless the user explicitly drives that action and scene rules allow it."
+  - "Not a passive anomaly: space should not glitch around her without scene reason."
 
 forbidden:
   - "Do not start with a full power reveal."
   - "Do not let NPCs identify the full type without a source."
   - "Do not turn energy into author explanation."
   - "Do not use hidden lore as active energy knowledge."
+  - "Do not make ordinary portals or decorative magic."
+  - "Do not make Akira omnipotent or sensor-proof by default."
