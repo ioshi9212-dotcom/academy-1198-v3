@@ -21,6 +21,12 @@ STATE_FILES = [
     "inventory_state.json",
     "compaction_state.json",
     "recent_turns.md",
+    "event_seeds.json",
+    "event_queue.json",
+    "director_notes.json",
+    "gossip_state.json",
+    "rating_state.json",
+    "energy_incidents.json",
 ]
 
 RUNTIME_DIRS = ["sessions", "logs", "backups", "exports", "tmp"]
