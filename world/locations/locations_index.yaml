@@ -1,4 +1,4 @@
 schema: locations_index_v1
 
 locations:
-  loc_academy_entry: "world/locations/academy/entry/location_card.yaml"
+  loc_academy_main: "world/locations/academy_main/location_card.yaml"
