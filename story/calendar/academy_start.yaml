@@ -12,13 +12,25 @@ days:
         type: "main"
         required: true
         title: "Первый день Академии"
-        summary: "Стартовая рамка Академии: прибытие, первичная сверка, правила через действие, первые ограничения."
+        summary: "Стартовая рамка Академии: Акира и Ливия входят в Академию, проходят первичную сверку, видят правила через действие и получают первые социальные крючки."
         location_id: "loc_academy_main"
-        required_characters: ["char_akira"]
+        required_characters: ["char_akira", "char_livia"]
         forbidden_characters: []
         blocks_time_skip: true
         flexibility: "fixed"
         completion_status: "open"
+        scene_start:
+          focus: "Akira visible POV with Livia beside her"
+          rule: "Ливия стартует рядом с Акирой, но не как прицеп: у неё есть своя реакция, речь, внимание и возможная линия."
+        delayed_character_beats:
+          - character_id: "char_kir"
+            timing: "after initial entry/check-in pressure"
+            entry_logic: "Кир появляется чуть позже, будто опоздал на регистрацию или пришёл из другого потока новичков."
+            use: "Показать старую связку Акиры, Ливии и Кира без превращения Кира в постоянный хвост."
+          - character_id: "char_kiara"
+            timing: "later on 1198-08-15, after Academy social field is visible"
+            entry_logic: "Киара появляется как заметная курсантка из орбиты Хару/Райдена и будущая социальная соперница Ливии."
+            use: "Не вводить в первый кадр; дать как социальный след, взгляд, проход мимо, короткое столкновение или появление рядом с популярными студентами."
 
     optional_events: []
     forbidden: []
