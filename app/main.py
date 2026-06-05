@@ -31,7 +31,7 @@ COMPACT_EVERY_TURNS = int(os.getenv("COMPACT_EVERY_TURNS", "15"))
 MAX_FILE_CHARS = int(os.getenv("MAX_FILE_CHARS", "18000"))
 MAX_SCENE_SLICE_CHARS = int(os.getenv("MAX_SCENE_SLICE_CHARS", "6000"))
 
-app = FastAPI(title=f"{PROJECT_SLUG} GPT Actions API", version="3.2.0")
+app = FastAPI(title=f"{PROJECT_SLUG} GPT Actions API", version="3.2.1")
 
 
 class CreateSessionRequest(BaseModel):
@@ -93,6 +93,7 @@ class CompactRequest(BaseModel):
 
 
 CORE_REQUIRED_FILES = [
+    "engine/novel_director_core.md",
     "engine/output_format.md",
     "engine/scene_generation_rules.md",
     "engine/event_engine_rules.md",
@@ -972,6 +973,7 @@ def build_scene_contract(session_id: str, current_state: dict[str, Any], mode: s
             "reference_character_ids": selected["reference"],
             "full_rule": "Full files are loaded only for POV/active/nearby characters.",
             "reference_rule": "Mentioned/scheduled/delayed characters use light info unless they enter the scene.",
+            "active_character_file_rule": "For every full character, behavior.md and voice.md must be used. If missing from contract, fetch them through getProjectFileByQuery before writing scene.",
         },
         "relationship_slice": build_relationship_slice(session_id, scene_ids),
         "knowledge_slice": build_knowledge_slice(session_id, scene_ids),
@@ -984,6 +986,7 @@ def build_scene_contract(session_id: str, current_state: dict[str, Any], mode: s
             "Do not load every project file for a normal scene.",
             "Use current calendar day only unless time skip/audit requires more.",
             "Use full character files only for POV/active/nearby characters.",
+            "For full characters, use behavior.md and voice.md; fetch them by query if missing.",
             "Use light character info for mentioned/scheduled/delayed characters.",
             "Use relationships, knowledge and incidents only for characters present or directly affecting the current beat.",
             "Use event_engine_slice to create interesting scene pressure between calendar points.",
@@ -1001,7 +1004,7 @@ def root() -> dict[str, Any]:
     return {
         "status": "ok",
         "project": PROJECT_SLUG,
-        "version": "3.2.0",
+        "version": "3.2.1",
         "actions_schema": "/openapi-actions.json",
         "health": "/health",
         "debug_volume": "/debug/volume",
@@ -1010,7 +1013,7 @@ def root() -> dict[str, Any]:
 
 @app.get("/health")
 def health() -> dict[str, Any]:
-    return {"success": True, "project": PROJECT_SLUG, "version": "3.2.0", "time": utc_now()}
+    return {"success": True, "project": PROJECT_SLUG, "version": "3.2.1", "time": utc_now()}
 
 
 @app.get("/debug/volume")
@@ -1060,6 +1063,7 @@ def get_turn_contract(session_id: str, req: TurnContractRequest) -> dict[str, An
         "required_files": required_files,
         "required_file_contents": contents,
         "checks": [
+            "Novel director has top priority: write a living interactive scene, not a registration instruction.",
             "Use scene_contract first; required_files are support, not the whole project.",
             "Use event_engine_slice to create interesting events between calendar points.",
             "Do not reveal director notes to user.",
@@ -1068,6 +1072,7 @@ def get_turn_contract(session_id: str, req: TurnContractRequest) -> dict[str, An
             "Do not translate location names to English; use location_human.",
             "Use current calendar slice only unless time skip/audit requires more.",
             "Use full character files only for POV/active/nearby characters.",
+            "For full characters, use behavior.md and voice.md; fetch them by query if missing.",
             "Use light info for mentioned/scheduled/delayed characters.",
             "Use relationship/knowledge slices from scene_contract before NPC claims.",
             "Obey response_format_contract and scene_density_contract.",
@@ -1232,7 +1237,7 @@ def openapi_actions() -> dict[str, Any]:
 
     return {
         "openapi": "3.1.0",
-        "info": {"title": f"{PROJECT_SLUG} GPT Actions", "version": "3.2.0"},
+        "info": {"title": f"{PROJECT_SLUG} GPT Actions", "version": "3.2.1"},
         "servers": [{"url": server}],
         "paths": {
             "/health": {

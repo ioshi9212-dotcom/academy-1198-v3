@@ -6,10 +6,16 @@
       "focus_id": "focus_academy_start_alive_scene",
       "purpose": "Сделать старт Академии живым, не процедурным.",
       "next_scene_intent": "Показывать правила через людей, давление, внимание и мелкие события, а не через сухую регистрацию.",
-      "active_seeds": [],
+      "active_seeds": [
+        "seed_white_hair_first_attention",
+        "seed_livia_not_a_guide",
+        "seed_kir_late_entry"
+      ],
       "must_not_do": [
         "не превращать сцену в инструкцию регистрации",
         "не делать active NPC справочниками",
+        "не писать Ливию как новую спутницу",
+        "не писать Акиру как нейтральную RPG-куклу",
         "не раскрывать скрытый лор напрямую"
       ],
       "status": "active"

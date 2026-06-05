@@ -9,7 +9,10 @@
     "priority": 5,
     "date": "1198-08-15",
     "location_id": "loc_academy_main",
-    "characters": ["char_akira", "char_livia"],
+    "characters": [
+      "char_akira",
+      "char_livia"
+    ],
     "event_goal": "Сделать вход Акиры заметным для социальной среды Академии без прямого объяснения лора.",
     "scene_pressure": "Несколько новичков и сотрудник замечают слишком белые волосы и слишком спокойную реакцию Акиры на контроль.",
     "use_as": "Фоновое внимание, взгляды, короткий шёпот, первый рост peer_attention.",
@@ -21,7 +24,10 @@
     "priority": 4,
     "date": "1198-08-15",
     "location_id": "loc_academy_main",
-    "characters": ["char_akira", "char_livia"],
+    "characters": [
+      "char_akira",
+      "char_livia"
+    ],
     "event_goal": "Показать, что Академия реагирует на энергию и сбои через действие, а не лекцию.",
     "scene_pressure": "У одного из новичков рядом на секунду мигает браслет или метка сверки; сотрудники меняют тон и поток начинает нервничать.",
     "use_as": "Маленькая энергетическая тревога на фоне, которую Акира может заметить и оценить.",
@@ -33,7 +39,10 @@
     "priority": 5,
     "date": "1198-08-15",
     "location_id": "loc_academy_main",
-    "characters": ["char_livia", "char_akira"],
+    "characters": [
+      "char_livia",
+      "char_akira"
+    ],
     "event_goal": "Показать Ливию живой социальной силой, а не справочником регистрации.",
     "scene_pressure": "Ливия реагирует на взгляды слишком громко, шутит или флиртует с ситуацией, но по паузе видно, что она тоже оценивает поле.",
     "use_as": "Реплика, движение, попытка перетянуть внимание или прикрыть неловкость шумом.",
@@ -45,7 +54,11 @@
     "priority": 4,
     "date": "1198-08-15",
     "location_id": "loc_academy_main",
-    "characters": ["char_kir", "char_akira", "char_livia"],
+    "characters": [
+      "char_kir",
+      "char_akira",
+      "char_livia"
+    ],
     "trigger_after": "after first entry pressure is visible",
     "event_goal": "Ввести Кира как живую задержавшуюся проблему, а не карточку персонажа.",
     "scene_pressure": "Кир появляется чуть позже, сбивая ритм потока, чужое внимание или работу сотрудника.",

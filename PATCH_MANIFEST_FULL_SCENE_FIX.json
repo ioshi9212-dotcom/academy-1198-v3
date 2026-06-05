@@ -1,0 +1,32 @@
+{
+  "patch_name": "academy-1198-v3_full_scene_fix",
+  "created_at": "2026-06-05T16:55:25.117547+00:00",
+  "target_repo": "ioshi9212-dotcom/academy-1198-v3",
+  "recommended_commit": "Apply full scene director fix",
+  "api_version": "3.2.1",
+  "files": [
+    "app/main.py",
+    "story/calendar/academy_start.yaml",
+    "engine/novel_director_core.md",
+    "gpt/custom_gpt_instructions.md",
+    "engine/event_engine_rules.md",
+    "engine/scene_generation_rules.md",
+    "engine/output_format.md",
+    "state_templates/event_queue.json",
+    "state_templates/event_seeds.json",
+    "state_templates/director_notes.json",
+    "state_templates/gossip_state.json",
+    "state_templates/rating_state.json",
+    "state_templates/energy_incidents.json",
+    "PATCH_README_FULL_SCENE_FIX.md",
+    "PATCH_MANIFEST_FULL_SCENE_FIX.json"
+  ],
+  "fixes": [
+    "adds novel director core",
+    "loads novel director before other scene rules",
+    "requires behavior/voice for active full characters",
+    "adds start event queue and seeds",
+    "removes registration-heavy start calendar wording",
+    "strengthens custom GPT instructions"
+  ]
+}

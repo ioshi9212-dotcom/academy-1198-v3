@@ -269,3 +269,8 @@ Before skipping time, check:
 9. injuries and fatigue.
 
 If nothing meaningful exists, summarize the gap and stop at the next meaningful moment.
+
+
+## Active character file requirement
+
+If a character is active/full/nearby, use their behavior and voice. If behavior.md and voice.md are not available in scene_contract, fetch them through getProjectFileByQuery before writing the scene. Do not write active characters from seed summaries alone.

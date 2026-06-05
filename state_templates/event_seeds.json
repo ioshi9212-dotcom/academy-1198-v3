@@ -9,7 +9,9 @@
     "priority": 5,
     "date": "1198-08-15",
     "location_id": "loc_academy_main",
-    "characters": ["char_akira"],
+    "characters": [
+      "char_akira"
+    ],
     "source": "Акира входит в поток новичков с очень длинными белыми волосами и спокойным лицом.",
     "pressure": "социальное внимание, первые взгляды, слух без слов",
     "possible_payoffs": [
@@ -25,7 +27,10 @@
     "priority": 5,
     "date": "1198-08-15",
     "location_id": "loc_academy_main",
-    "characters": ["char_livia", "char_akira"],
+    "characters": [
+      "char_livia",
+      "char_akira"
+    ],
     "source": "Ливия стартует рядом с Акирой и должна проявляться как самостоятельная социальная сила.",
     "pressure": "шум, защита через шутку, флирт с ситуацией, скрытая оценка поля",
     "possible_payoffs": [
@@ -41,7 +46,11 @@
     "priority": 4,
     "date": "1198-08-15",
     "location_id": "loc_academy_main",
-    "characters": ["char_kir", "char_akira", "char_livia"],
+    "characters": [
+      "char_kir",
+      "char_akira",
+      "char_livia"
+    ],
     "source": "Кир должен появиться позже, будто опоздал на регистрацию или пришёл из другого потока.",
     "pressure": "сбитый ритм, узнавание, чужое внимание, раздражение сотрудников",
     "possible_payoffs": [
