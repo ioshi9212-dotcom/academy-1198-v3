@@ -1,5 +1,69 @@
 character_id: "char_akira"
-knows: []
-suspects: []
+schema: "character_knowledge_v1"
+
+start_frame:
+  date: "1198-08-15"
+  day_id: "academy_day_001"
+  location_id: "loc_academy_main"
+  arc_id: "arc_001_academy_start"
+
+knows:
+  - id: "knows_entering_academy"
+    text: "Акира знает, что входит в Академию 1198 и находится в стартовой академической зоне."
+    source: "current start frame"
+    usable_in_scene: true
+
+  - id: "knows_basic_entry_process"
+    text: "Акира знает только базовый смысл прибытия: первичная сверка, группа, доступ и ближайшие инструкции."
+    source: "what she has already been told before the start frame"
+    usable_in_scene: true
+
+  - id: "knows_rules_are_partial"
+    text: "Акира понимает, что правила ей будут раскрывать по мере допуска, а не полным справочником сразу."
+    source: "visible Academy process"
+    usable_in_scene: true
+
+  - id: "knows_energy_is_restricted"
+    text: "Акира знает общий принцип: энергия в Академии используется только в разрешённых местах и по команде инструктора."
+    source: "basic Academy rules"
+    usable_in_scene: true
+
+  - id: "knows_control_points_exist"
+    text: "Акира видит и понимает, что в Академии есть пропуска, списки групп и точки доступа."
+    source: "visible environment"
+    usable_in_scene: true
+
+suspects:
+  - id: "suspects_system_has_weak_points"
+    text: "Акира предполагает, что любая система контроля имеет слабые места, привычки персонала и зоны невнимательности."
+    source: "her observation habit"
+    usable_in_scene: true
+
+  - id: "suspects_people_reveal_more_than_rules"
+    text: "Акира считает, что реакции людей часто полезнее официальных объяснений."
+    source: "behavior pattern"
+    usable_in_scene: true
+
 wrong_beliefs: []
-does_not_know: []
+
+does_not_know:
+  - id: "no_hidden_lore"
+    text: "Акира не знает скрытый лор, если он не был открыт ей в текущей сцене или state."
+
+  - id: "no_npc_private_knowledge"
+    text: "Акира не знает информацию, которой владеют только NPC, закрытые файлы или автор."
+
+  - id: "no_full_academy_map"
+    text: "Акира не знает всю карту Академии и все внутренние процедуры на старте."
+
+  - id: "no_future_relationships"
+    text: "Акира не знает будущие связи, конфликты и роли персонажей, пока они не проявлены в сцене."
+
+  - id: "no_complex_personal_lore_active"
+    text: "Сложные личные тайны, скрытая память и глубокие связи не являются активным знанием Акиры на стартовой сцене."
+
+scene_limits:
+  - "Do not use this file to give Akira author-level explanations."
+  - "Do not let NPCs know Akira's hidden details without a loaded source."
+  - "Do not reveal future arcs through Akira's thoughts."
+  - "Use visible POV and current state first."
