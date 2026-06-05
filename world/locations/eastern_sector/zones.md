@@ -1,3 +1,0 @@
-# Removed
-
-Obsolete placeholder.
