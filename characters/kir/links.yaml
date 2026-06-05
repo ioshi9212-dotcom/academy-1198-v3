@@ -1,0 +1,65 @@
+character_id: "char_kir"
+schema: "character_links_v1"
+
+relationships:
+  - target_id: "char_akira"
+    status: "old_school_link"
+    visibility: "active_when_kir_enters"
+    start_use: "Кир появляется позже 1198-08-15 и сразу считывается как старый знакомый Акиры."
+    current_dynamic: "old provocation, familiar danger, sharp trust without softness"
+    constraints:
+      - "Kir does not speak or decide for Akira."
+      - "Old provocation with Akira's hair is unique to their history."
+      - "Kir does not use real force against Akira in old-play dynamic."
+
+  - target_id: "char_livia"
+    status: "old_school_link"
+    visibility: "active_when_kir_enters"
+    start_use: "Кир появляется как третий в старой связке Акиры и Ливии."
+    current_dynamic: "teasing, stolen snacks, sharp truth, unreliable but real care"
+    constraints:
+      - "Kir is not always on Livia's side."
+      - "Kir can see Livia's social masks but does not own her choices."
+
+  - target_id: "char_kiara"
+    status: "future_social_friction"
+    visibility: "inactive_at_start"
+    start_use: "Киара может стать для Кира примером красивой социальной маски, которую хочется испортить."
+    current_dynamic: "not active yet"
+
+  - target_id: "char_raiden"
+    status: "future_irritation_or_interest"
+    visibility: "inactive_at_start"
+    start_use: "Не стартовый фокус. Кир может позже заметить, что Райдена лучше не трогать физически."
+    current_dynamic: "not active yet"
+
+  - target_id: "char_haru"
+    status: "future_teasing_dynamic"
+    visibility: "inactive_at_start"
+    start_use: "Кир может позже портить Хару красивый эффект сухими замечаниями."
+    current_dynamic: "not active yet"
+
+shared_incidents:
+  participated:
+    - id: "school_triangle_akira_livia_kir"
+      summary: "Акира, Ливия и Кир имеют старую школьную динамику до старта Академии."
+      visibility: "known_to_akira_livia_kir"
+
+canon_files:
+  public:
+    - "old_repo: characters/main/kir_knox.md"
+    - "old_repo: characters/habits/kir_habits.md"
+    - "old_repo: characters/powers/kir_impulse_shift.md"
+    - "old_repo: characters/knowledge/kir_knowledge.md"
+    - "old_repo: characters/past/kir_past.md"
+
+runtime_refs:
+  character_memory: "state/character_memory/char_kir.json"
+  focused_relationships: "state/relationships.json"
+  open_threads: "state/open_threads.json"
+  shared_incidents: "state/shared_incidents.json"
+
+loading_hints:
+  load_past_if: ["old school dynamic matters", "Akira/Livia/Kir boundary is tested"]
+  load_energy_if: ["training", "combat", "energy check", "movement anomaly is mentioned"]
+  load_habits_if: ["close interaction", "social tension", "body language matters"]
