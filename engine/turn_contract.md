@@ -2,16 +2,23 @@
 
 Before every play-scene answer, the engine must:
 
-1. Read current runtime session state.
-2. Read recent_turns.
-3. Check current year, date, day_id, time, location and arc.
-4. Check active calendar by current_calendar_id.
-5. Load active characters by ID only.
-6. Load mentioned characters only if the user input or active state requires them.
-7. Load focused knowledge and focused relationships.
-8. Load shared incidents only when linked to active characters or open threads.
-9. Load hidden lore only as a hidden causal layer, not NPC knowledge.
-10. Write scene through Akira-visible POV.
-11. Stop at a meaningful intervention point.
-12. Provide action options, line options and true thoughts.
-13. Persist meaningful state changes through the API.
+1. Read the current runtime session state.
+2. Read `recent_turns`.
+3. Check current year, date, day_id, time, location, arc and calendar.
+4. Check active calendar by `current_calendar_id`.
+5. Check active arc by `current_arc_id`.
+6. Check current location by `current_location_id`.
+7. Load the Academy index and the Academy files needed for the current scene.
+8. Load active characters by ID only.
+9. Load scheduled delayed characters only if their beat is due.
+10. Load mentioned characters only if the user input or active state requires them.
+11. Load focused relationships and focused knowledge.
+12. Load open threads connected to active characters, current location or current calendar event.
+13. Load shared incidents only when linked to active characters, open threads or current consequences.
+14. Treat hidden lore as causal background only, not as NPC knowledge.
+15. Write the scene through Akira-visible POV.
+16. Stop at a meaningful intervention point.
+17. Provide action options, line options and true thoughts.
+18. Persist meaningful state changes through the API.
+
+If required files are missing, state what is missing instead of continuing from guesswork.

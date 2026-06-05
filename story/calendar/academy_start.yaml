@@ -1,36 +1,264 @@
 calendar_id: "academy_start"
 year: "1198"
+source: "adapted_from_academy_1198_calendar"
 start_date: "1198-08-15"
+
+calendar_rules:
+  - "This is a meaningful-event calendar, not a daily diary."
+  - "Do not write every day unless the day creates an event, consequence, relationship, check, reputation shift or open thread."
+  - "If the player asks to skip time, move to the nearest meaningful event after checking open threads and current state."
+  - "Calendar events guide pressure and availability; current runtime state decides exact scene entry."
 
 days:
   academy_day_001:
     date: "1198-08-15"
     day_status: "hard_event"
     title: "Старт Академии"
+    source_note: "old 1198 canon: arrival and registration"
     required_events:
       - event_id: "event_academy_start"
         type: "main"
         required: true
         title: "Первый день Академии"
-        summary: "Стартовая рамка Академии: Акира и Ливия входят в Академию, проходят первичную сверку, видят правила через действие и получают первые социальные крючки."
+        summary: "Акира и Ливия входят в Академию, проходят первичную сверку, видят правила через действие и получают первые социальные крючки."
         location_id: "loc_academy_main"
         required_characters: ["char_akira", "char_livia"]
-        forbidden_characters: []
         blocks_time_skip: true
         flexibility: "fixed"
         completion_status: "open"
-        scene_start:
-          focus: "Akira visible POV with Livia beside her"
-          rule: "Ливия стартует рядом с Акирой, но не как прицеп: у неё есть своя реакция, речь, внимание и возможная линия."
-        delayed_character_beats:
-          - character_id: "char_kir"
-            timing: "after initial entry/check-in pressure"
-            entry_logic: "Кир появляется чуть позже, будто опоздал на регистрацию или пришёл из другого потока новичков."
-            use: "Показать старую связку Акиры, Ливии и Кира без превращения Кира в постоянный хвост."
-          - character_id: "char_kiara"
-            timing: "later on 1198-08-15, after Academy social field is visible"
-            entry_logic: "Киара появляется как заметная курсантка из орбиты Хару/Райдена и будущая социальная соперница Ливии."
-            use: "Не вводить в первый кадр; дать как социальный след, взгляд, проход мимо, короткое столкновение или появление рядом с популярными студентами."
+        beats:
+          - beat_id: "beat_001_akira_livia_entry"
+            characters: ["char_akira", "char_livia"]
+            summary: "Акира и Ливия входят в поток новичков вместе; Ливия активна, но не говорит за Акиру."
+          - beat_id: "beat_002_entry_check"
+            characters: ["char_akira", "char_livia"]
+            summary: "Первичная сверка показывает порядок, доступ и ближайший маршрут через действие."
+          - beat_id: "beat_003_kir_late_entry"
+            characters: ["char_kir"]
+            timing: "after first entry pressure"
+            summary: "Кир появляется позже, будто задержался на регистрации или пришёл из другого потока."
+          - beat_id: "beat_004_kiara_first_trace"
+            characters: ["char_kiara"]
+            timing: "after the Academy social field is visible"
+            summary: "Киара получает первый социальный след как заметная курсантка и будущая соперница Ливии."
+        possible_later_same_day:
+          - character_id: "char_haru"
+            use: "может появиться через шумную компанию, площадку, столовую или группу заметных курсантов"
+          - character_id: "char_raiden"
+            use: "может быть замечен как холодная социальная точка рядом с Хару, не как первый центр сцены"
+    optional_events:
+      - event_id: "event_uniform_and_dorm_assignment"
+        type: "academy_logistics"
+        title: "Форма и заселение"
+        summary: "Выдача формы, размещение, первые бытовые правила и социальное распределение."
+        allowed_if: "after event_academy_start progresses"
+    forbidden: []
 
+  academy_day_002:
+    date: "1198-08-16"
+    day_status: "hard_event"
+    title: "Физблок и первичные проверки"
+    required_events:
+      - event_id: "event_primary_physical_checks"
+        type: "training"
+        required: true
+        title: "Первичные физические проверки"
+        summary: "Проверка реакции, выносливости, контроля тела, допусков и первых инструкторских пометок."
+        required_characters: ["char_akira"]
+        optional_characters: ["char_livia", "char_kir", "char_haru", "char_raiden", "char_kiara"]
+        blocks_time_skip: true
+    optional_events: []
+    forbidden: []
+
+  academy_day_003:
+    date: "1198-08-17"
+    day_status: "soft_event"
+    title: "Баскетбол и социальная площадка"
+    required_events: []
+    optional_events:
+      - event_id: "event_basketball_social_court"
+        type: "social_training"
+        title: "Площадка как социальная арена"
+        summary: "Баскетбол показывает связки, репутацию, вызовы и то, что спорт в Академии не просто игра."
+        optional_characters: ["char_akira", "char_livia", "char_kir", "char_haru", "char_raiden", "char_kiara"]
+    forbidden: []
+
+  academy_day_004:
+    date: "1198-08-18"
+    day_status: "hard_event"
+    title: "Первый учебный спарринг Акиры и Райдена"
+    required_events:
+      - event_id: "event_akira_raiden_training_pair"
+        type: "training"
+        required: true
+        title: "Учебная проверка дистанции"
+        summary: "Академия ставит Акиру и Райдена в учебный формат; важны реакция, контроль и то, что заметят инструкторы."
+        required_characters: ["char_akira", "char_raiden"]
+        optional_characters: ["char_haru", "char_livia"]
+        blocks_time_skip: true
+    optional_events: []
+    forbidden: []
+
+  academy_day_006:
+    date: "1198-08-20"
+    day_status: "hard_event"
+    title: "Вынужденный синхрон"
+    required_events:
+      - event_id: "event_forced_sync_check"
+        type: "team_training"
+        required: true
+        title: "Парная проверка"
+        summary: "После проверки друг против друга Академия ставит Акиру и Райдена в пару; это не романтика, а учебная реакция тела, ритма и контроля."
+        required_characters: ["char_akira", "char_raiden"]
+        optional_characters: ["char_haru", "char_livia"]
+        blocks_time_skip: true
+    optional_events: []
+    forbidden: []
+
+  academy_day_008:
+    date: "1198-08-22"
+    day_status: "soft_event"
+    title: "Ливия вытаскивает Акиру"
+    required_events: []
+    optional_events:
+      - event_id: "event_livia_pulls_akira_out"
+        type: "social"
+        title: "Свободное время с социальным давлением"
+        summary: "Ливия проявляет самостоятельную инициативу; Киара может усилить конфликт внимания; Хару может пересечься с Акирой через живой отдых."
+        optional_characters: ["char_akira", "char_livia", "char_kiara", "char_haru"]
+    forbidden: []
+
+  academy_day_012:
+    date: "1198-08-26"
+    day_status: "soft_event"
+    title: "Тихий эмоциональный узел"
+    required_events: []
+    optional_events:
+      - event_id: "event_neya_drawing_node"
+        type: "character_node"
+        title: "Рисунок и публичная неловкость"
+        summary: "Тихий персонажный узел через рисунок, наблюдение или сцену у учебного корпуса; Хару раскрывается как неидеальный человек."
+        optional_characters: ["char_akira", "char_haru", "char_livia"]
+    forbidden: []
+
+  academy_day_017:
+    date: "1198-08-31"
+    day_status: "hard_event"
+    title: "День рождения Райдена и появление Самуэля"
+    required_events:
+      - event_id: "event_raiden_birthday_samuel_arrival"
+        type: "system_character_node"
+        required: true
+        title: "Праздник с холодным краем"
+        summary: "Райдену исполняется 18; Самуэль появляется как важная системная фигура и усиливает семейное давление."
+        required_characters: ["char_raiden", "char_haru", "char_samuel"]
+        optional_characters: ["char_akira", "char_livia", "char_kiara"]
+        blocks_time_skip: true
+    optional_events: []
+    forbidden: []
+
+  academy_day_018:
+    date: "1198-09-01"
+    day_status: "hard_event"
+    title: "Возвращение старших и старых ран"
+    required_events:
+      - event_id: "event_seniors_return"
+        type: "social_past_node"
+        required: true
+        title: "Старшие возвращаются в кампус"
+        summary: "Ашер и Кай возвращаются к обучению; старые линии Ливии и Акиры получают сценическое основание."
+        required_characters: ["char_akira", "char_livia"]
+        optional_characters: ["char_kael", "char_kai", "char_asher", "char_haru", "char_raiden"]
+        blocks_time_skip: true
+    optional_events: []
+    forbidden: []
+
+  academy_day_021:
+    date: "1198-09-04"
+    day_status: "soft_event"
+    title: "Рейтинговая доска"
+    required_events: []
+    optional_events:
+      - event_id: "event_rating_board"
+        type: "reputation"
+        title: "Рейтинги после августовских проверок"
+        summary: "Обновление рейтингов, публичное внимание и новые поводы для соперничества."
+        optional_characters: ["char_akira", "char_livia", "char_kiara", "char_haru", "char_raiden"]
+    forbidden: []
+
+  academy_day_024:
+    date: "1198-09-07"
+    day_status: "hard_event"
+    title: "Выездной учебный полигон"
+    required_events:
+      - event_id: "event_field_training_site"
+        type: "field_training"
+        required: true
+        title: "Учебный выезд"
+        summary: "Малые группы выводят на внешний учебный полигон: ориентация, связь, контроль зоны, эвакуация и работа с условной угрозой."
+        required_characters: ["char_akira"]
+        optional_characters: ["char_livia", "char_kir", "char_haru", "char_raiden"]
+        blocks_time_skip: true
+    optional_events: []
+    forbidden: []
+
+  academy_day_035:
+    date: "1198-09-18"
+    day_status: "hard_event"
+    title: "Ночной учебный сигнал"
+    required_events:
+      - event_id: "event_night_training_signal"
+        type: "pressure_training"
+        required: true
+        title: "Ночной учебный сигнал"
+        summary: "Выбранные группы поднимают ночью: быстро собраться, добраться до точки, не потерять напарника, не сорваться."
+        required_characters: ["char_akira"]
+        optional_characters: ["char_livia", "char_kir", "char_haru", "char_raiden"]
+        blocks_time_skip: true
+    optional_events: []
+    forbidden: []
+
+  academy_day_039:
+    date: "1198-09-22"
+    day_status: "soft_event"
+    title: "Публичный показательный блок"
+    required_events: []
+    optional_events:
+      - event_id: "event_public_demonstration_block"
+        type: "public_training"
+        title: "Показательные связки"
+        summary: "Публичные спарринги и связки перед курсом; внимание, рейтинг и репутация резко меняются."
+        optional_characters: ["char_akira", "char_livia", "char_kiara", "char_haru", "char_raiden"]
+    forbidden: []
+
+  academy_day_043:
+    date: "1198-09-26"
+    day_status: "hard_event"
+    title: "Почти настоящий рейд"
+    required_events:
+      - event_id: "event_near_real_field_threat"
+        type: "field_pressure"
+        required: true
+        title: "Учебный выезд идёт не по плану"
+        summary: "Контролируемый внешний участок получает нестабильный след; это ещё не полноценное раскрытие лора, но уже достаточно страшно."
+        required_characters: ["char_akira"]
+        optional_characters: ["char_livia", "char_kir", "char_haru", "char_raiden", "char_samuel"]
+        blocks_time_skip: true
+    optional_events: []
+    forbidden: []
+
+  academy_day_047:
+    date: "1198-09-30"
+    day_status: "hard_event"
+    title: "Последствия месяца"
+    required_events:
+      - event_id: "event_month_consequences"
+        type: "consequence"
+        required: true
+        title: "Рейтинги, допуски, слухи и переходы"
+        summary: "Рейтинговый пересчёт, изменение допусков, закрепление слухов и перенос открытых линий в следующий месяц."
+        required_characters: ["char_akira"]
+        optional_characters: ["char_livia", "char_kir", "char_haru", "char_raiden", "char_kiara", "char_samuel"]
+        blocks_time_skip: true
     optional_events: []
     forbidden: []

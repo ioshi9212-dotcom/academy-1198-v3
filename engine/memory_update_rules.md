@@ -15,17 +15,46 @@ Save:
 - open threads;
 - resolved threads;
 - inventory changes;
-- character_memory perspective updates.
+- reputation changes;
+- character_memory perspective updates;
+- next relevant beat if changed.
 
 Do not save hidden lore as character knowledge unless revealed in-scene.
 
-## Compaction
+## Meaningful memory
 
-Every 15 game turns, compact memory:
+Save only changes with future value.
 
-- keep important events;
-- close resolved threads;
-- remove repeated empty movement;
-- preserve relationship consequences;
-- update recent_turns.md;
-- keep character-specific memory perspectives.
+Examples:
+
+- a character learned a name;
+- a character saw a behavior pattern;
+- a relationship tension changed;
+- a promise or debt appeared;
+- a scene created a future meeting;
+- a rule consequence was shown;
+- a person gained a wrong belief;
+- Akira's access, health, reputation or schedule changed.
+
+## Routine memory
+
+Do not save repeated routine unless it changes something.
+
+Examples usually not worth saving alone:
+
+- walked down a hallway;
+- drank water;
+- looked around;
+- stood in line;
+- sat down.
+
+They become worth saving if tied to:
+
+- conflict;
+- observation;
+- injury;
+- reputation;
+- access;
+- knowledge;
+- relationship;
+- schedule.
