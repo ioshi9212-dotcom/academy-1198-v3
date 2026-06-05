@@ -1,31 +1,42 @@
-# Machine-readable character passport. Keep this short.
-
 id: "char_livia"
 display_name: "Ливия"
-true_name: "Ливия"
+true_name: "Ливия Кросс"
 
 labels:
-  unknown_to_akira: "девушка"
+  unknown_to_akira: "Ливия"
   known_to_akira: "Ливия"
   narrator_default: "Ливия"
-  speaker_label_before_reveal: "Девушка"
+  speaker_label_before_reveal: "Ливия"
   speaker_label_after_reveal: "Ливия"
 
 aliases:
   - "ливия"
   - "livia"
+  - "ливия кросс"
+  - "livia cross"
 reserved_aliases: []
 
-gender: ""
-age: null
-height: null
+gender: "female"
+age: 17
+birth_date: "1181-08-03"
+zodiac_note: "Лев по характеру: яркая, социальная, болезненно чувствительная к вниманию и статусу."
+height: "около 164 см"
 
 role:
-  public_role: ""
-  hidden_role: ""
-  current_status: ""
-  faction_id: null
-  location_anchor: null
+  public_role: "новичок Академии 1198; школьная подруга Акиры; социальная линия первого дня"
+  hidden_role: null
+  current_status: "поступает в Академию вместе с Акирой"
+  faction_id: "academy_students"
+  location_anchor: "loc_academy_main"
+
+start_frame:
+  calendar_id: "academy_start"
+  date: "1198-08-15"
+  day_id: "academy_day_001"
+  arc_id: "arc_001_academy_start"
+  required_location_id: "loc_academy_main"
+  active_at_start: true
+  start_focus: "with Akira, but independent social presence"
 
 files:
   profile: "profile.md"
@@ -45,16 +56,24 @@ scene_usage:
   requires_story_reason: true
   can_be_background: false
   can_speak_without_card_loaded: false
+  first_day_required: true
 
 pov_access:
-  akira_can_notice: ["appearance", "voice", "movement", "facial_expression", "visible_reaction"]
-  akira_cannot_know: ["inner_thoughts", "hidden_motives", "unspoken_past", "secret_files"]
+  akira_can_notice: ["appearance", "voice", "movement", "facial_expression", "visible_reaction", "familiar habits"]
+  akira_cannot_know: ["inner_thoughts", "hidden_motives", "unspoken_past", "secret_files", "future jealousy"]
 
 loading_rules:
-  always_load_with_character: ["appearance", "behavior", "voice", "knowledge", "links"]
-  load_only_if_scene_requires: ["energy", "past", "habits", "goals"]
+  always_load_with_character: ["appearance", "behavior", "voice", "knowledge", "links", "goals"]
+  load_only_if_scene_requires: ["energy", "past", "habits"]
+
+canon_priority:
+  - "Use old 1198 canon for Livia's role, friendship with Akira, social line, habits, resonance power and limits."
+  - "Use the current v3 visual choice for hair: honey-blonde. Do not offer alternate hair colors."
+  - "Do not treat hidden lore as Livia's active knowledge."
 
 forbidden:
-  - "Do not change fixed appearance without user/canon update."
-  - "Do not give this character knowledge without a source."
-  - "Do not use hidden_role as public knowledge."
+  - "Do not make Livia a new acquaintance, new roommate or random dorm girl."
+  - "Do not make Livia Akira's shadow or narrator helper."
+  - "Do not make Livia speak, decide or feel for Akira."
+  - "Do not make Livia stupid, empty, villainous or always convenient."
+  - "Do not give Livia hidden lore without a scene source."
