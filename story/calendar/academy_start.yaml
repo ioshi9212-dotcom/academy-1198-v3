@@ -13,7 +13,7 @@ days:
         required: true
         title: "Первый день Академии"
         summary: "Стартовая рамка Академии: прибытие, первичная сверка, правила через действие, первые ограничения."
-        location_id: null
+        location_id: "loc_academy_main"
         required_characters: ["char_akira"]
         forbidden_characters: []
         blocks_time_skip: true
