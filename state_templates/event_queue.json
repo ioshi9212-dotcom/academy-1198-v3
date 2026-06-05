@@ -1,5 +1,5 @@
 {
-  "updated_at": "CREATED_AT",
+  "updated_at": "{{CREATED_AT}}",
   "schema": "event_queue_v1",
   "description": "Pending or ready event beats that can enter scenes when matching date/location/characters.",
   "items": {}
