@@ -1,0 +1,72 @@
+id: "char_kir"
+display_name: "Кир"
+true_name: "Кир Нокс"
+address_name: "Кир"
+
+labels:
+  unknown_to_akira: "Кир"
+  known_to_akira: "Кир"
+  narrator_default: "Кир"
+  speaker_label_before_reveal: "Кир"
+  speaker_label_after_reveal: "Кир"
+
+aliases:
+  - "Кир Нокс"
+reserved_aliases: []
+
+gender: "male"
+age_range: "17-18"
+height: "около 175 см"
+
+role:
+  public_role: "новичок Академии 1198; старый друг Акиры и Ливии; проблемный, но полезный студент"
+  hidden_role: null
+  current_status: "появляется 1198-08-15 позже стартовой сверки, будто опоздал на регистрацию"
+  faction_id: "academy_students"
+  location_anchor: "loc_academy_main"
+
+start_frame:
+  calendar_id: "academy_start"
+  date: "1198-08-15"
+  day_id: "academy_day_001"
+  arc_id: "arc_001_academy_start"
+  required_location_id: "loc_academy_main"
+  active_at_start: false
+  delayed_entry: true
+  entry_beat: "beat_003_kir_late_entry"
+
+files:
+  appearance: "appearance.md"
+  behavior: "behavior.md"
+  voice: "voice.md"
+  knowledge: "knowledge.yaml"
+  energy: "energy.yaml"
+  past: "past.md"
+  habits: "habits.md"
+  goals: "goals.yaml"
+  links: "links.yaml"
+
+scene_usage:
+  can_appear_without_calendar_reason: false
+  requires_location_match: true
+  requires_story_reason: true
+  can_be_background: false
+  can_speak_without_card_loaded: false
+  first_day_delayed: true
+
+pov_access:
+  akira_can_notice: ["appearance", "voice", "movement", "facial_expression", "old habits", "familiar provocation"]
+  akira_cannot_know: ["inner_thoughts", "unspoken_current_motives", "private_route_before_arrival"]
+
+loading_rules:
+  always_load_with_character: ["appearance", "behavior", "voice", "knowledge", "links", "goals"]
+  load_only_if_scene_requires: ["energy", "past", "habits"]
+
+naming_rules:
+  full_name_for_identification: "Кир Нокс"
+  scene_name: "Кир"
+  dialogue_name: "Кир"
+
+canon_priority:
+  - "old 1198 canon: old link with Akira and Livia, late first-day entry, impulse shift, habits, social role"
+  - "scene knowledge only from loaded sources"
