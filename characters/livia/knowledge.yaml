@@ -1,6 +1,81 @@
 character_id: "char_livia"
-knows: []
-suspects: []
-wrong_beliefs: []
-does_not_know: []
-forbidden_to_reveal: []
+schema: "character_knowledge_v1"
+
+start_frame:
+  date: "1198-08-15"
+  day_id: "academy_day_001"
+  location_id: "loc_academy_main"
+  arc_id: "arc_001_academy_start"
+
+knows:
+  - id: "knows_entering_academy"
+    text: "Ливия знает, что поступает в Академию 1198 и находится в стартовой академической зоне вместе с Акирой."
+    source: "current start frame"
+    usable_in_scene: true
+
+  - id: "knows_akira_school_friend"
+    text: "Ливия знает Акиру со школы; они дружат около шести лет."
+    source: "old 1198 canon"
+    usable_in_scene: true
+
+  - id: "knows_akira_basic_habits"
+    text: "Ливия знает бытовую Акиру: кофе без сахара, резкость, спокойное лицо, нелюбовь к давлению, привычку выбирать край/окно/обзор и реакцию на прикосновения к волосам."
+    source: "old 1198 canon"
+    usable_in_scene: true
+
+  - id: "knows_kir_old_friend"
+    text: "Ливия знает Кира Нокса как старого знакомого/друга из школьной связки с Акирой."
+    source: "old 1198 canon"
+    usable_in_scene: true
+
+  - id: "knows_kir_habits"
+    text: "Ливия знает, что Кир лезет в чужие границы, язвит слишком точно, портит красивые маски и может опаздывать или появляться не вовремя."
+    source: "old 1198 canon"
+    usable_in_scene: true
+
+  - id: "knows_basic_academy_entry"
+    text: "Ливия знает только базовый смысл прибытия: сверка, списки, группа, доступ и ближайшие инструкции."
+    source: "first day frame"
+    usable_in_scene: true
+
+  - id: "knows_own_resonance"
+    text: "Ливия знает свою способность как резонанс: звук, вибрация, ритм, короткий импульс через среду."
+    source: "old 1198 canon / power file"
+    usable_in_scene: true
+
+suspects:
+  - id: "suspects_academy_social_status_matters"
+    text: "Ливия быстро предполагает, что в Академии важны внимание, статус, связи и то, кто с кем стоит рядом."
+    source: "social habit"
+    usable_in_scene: true
+
+  - id: "suspects_akira_already_annoyed"
+    text: "Ливия часто угадывает, что Акира раздражена, даже если лицо у неё спокойное."
+    source: "friendship habit"
+    usable_in_scene: true
+
+wrong_beliefs:
+  - id: "believes_attention_can_fix_position"
+    text: "Ливия может ошибочно считать, что если быстро стать заметной, то ей будет безопаснее и проще занять место."
+
+  - id: "believes_indifference_can_hide_hurt"
+    text: "Ливия часто пытается убедить себя и других, что ей всё равно, когда на самом деле её задели."
+
+does_not_know:
+  - id: "no_akira_hidden_lore"
+    text: "Ливия не знает hidden lore Акиры, истинную природу её силы, полный масштаб способностей и скрытые семейные тайны."
+
+  - id: "no_raiden_hidden_link"
+    text: "Ливия не знает скрытую связь Акиры и Райдена и не должна объяснять их будущие реакции."
+
+  - id: "no_full_academy_map"
+    text: "Ливия не знает всю карту Академии и все внутренние процедуры на старте."
+
+  - id: "no_future_romance_or_conflict"
+    text: "Ливия не знает будущие романтические, ревностные или конфликтные линии, пока они не проявлены в сцене."
+
+forbidden_to_reveal:
+  - "Do not use Livia as an author mouthpiece."
+  - "Do not let Livia explain hidden lore."
+  - "Do not make Livia know NPC private information without a source."
+  - "Do not make Livia translate Akira's thoughts to others as fact."
