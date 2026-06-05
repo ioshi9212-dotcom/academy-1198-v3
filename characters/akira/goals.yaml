@@ -1,2 +1,36 @@
 character_id: "char_akira"
-current_goals: []
+schema: "character_goals_v1"
+
+current_goals:
+  - id: "goal_enter_academy_without_losing_position"
+    title: "Войти в Академию и не потерять контроль над положением"
+    visibility: "pov_visible"
+    priority: "high"
+    scene_use: "Двигать через выбор позиции, сверку, реакцию на персонал и первые ограничения."
+
+  - id: "goal_understand_rules_by_consequence"
+    title: "Понять правила через действие и последствия"
+    visibility: "pov_visible"
+    priority: "high"
+    scene_use: "Акира не должна получать справочник; она смотрит, что происходит с теми, кто спорит, ошибается или проходит официально."
+
+  - id: "goal_read_people_before_trusting"
+    title: "Сначала прочитать людей, потом решать, кто полезен"
+    visibility: "pov_visible"
+    priority: "medium"
+    scene_use: "Подходит для ранней сцепки с Ливией, персоналом или группой."
+
+blocked_goals:
+  - id: "no_full_escape_arc_at_start"
+    title: "Не запускать побег как стартовую цель без события"
+    reason: "Стартовая арка про вход в Академию, правила через действие и первые связи."
+
+  - id: "no_romance_or_complex_link_as_start_goal"
+    title: "Не делать сложную связь стартовой целью"
+    reason: "Сложные персонажи и связи должны подключаться позже по календарю, сцене или state."
+
+scene_goal_rules:
+  - "Every scene should move plot, relationship, knowledge, conflict, reputation, schedule or future pressure."
+  - "Do not reduce Akira's goal to registration paperwork."
+  - "Do not give Akira author-level strategic knowledge."
+  - "Let user choices decide whether she obeys, argues, observes or tests the system."
