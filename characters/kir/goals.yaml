@@ -1,0 +1,54 @@
+character_id: "char_kir"
+schema: "character_goals_v1"
+
+current_goals:
+  - id: "goal_get_through_registration_late"
+    title: "Пройти стартовую сверку, несмотря на опоздание"
+    visibility: "visible_through_behavior"
+    priority: "high"
+    scene_use: "Кир появляется позже Акиры и Ливии, будто опоздал или пришёл из другого потока новичков."
+
+  - id: "goal_rejoin_old_link_without_becoming_shadow"
+    title: "Вернуться в старую связку, не становясь постоянным спутником"
+    visibility: "visible_through_behavior"
+    priority: "high"
+    scene_use: "Кир может войти к Акире и Ливии, но у него должны оставаться свои маршруты, сцены и проблемы."
+
+  - id: "goal_test_academy_masks"
+    title: "Проверить, где в Академии настоящие люди, а где красивые роли"
+    visibility: "visible_through_behavior"
+    priority: "medium"
+    scene_use: "Кир цепляет фальшь, пафос, показную силу и слишком ровные социальные роли."
+
+  - id: "goal_not_be_fixed"
+    title: "Не дать Академии быстро сделать его удобным"
+    visibility: "subtext"
+    priority: "medium"
+    scene_use: "Проявляется через небрежность, спор с инструкциями, странные мелочи и неправильное сидение."
+
+hidden_goals:
+  - id: "hidden_goal_stay_useful_without_softness"
+    title: "Оставаться полезным своим людям, не называя это заботой"
+    visibility: "do_not_state_directly_without_scene_reason"
+    priority: "medium"
+    scene_use: "Может проявляться как резкая фраза, испорченная чужая атака, украденный батончик или присутствие рядом в неприятный момент."
+
+short_term_scene_drivers:
+  - "появиться позже стартовой сверки"
+  - "сломать слишком ровный момент"
+  - "показать старую динамику с Акирой и Ливией"
+  - "не стать постоянным хвостом"
+  - "заметить социальную фальшь или слабое место"
+
+avoids:
+  - "выглядеть правильным новичком"
+  - "быть удобным другом"
+  - "выбирать сторону автоматически"
+  - "признавать заботу напрямую"
+
+if_blocked:
+  - "язвит"
+  - "садится там, где неудобно другим"
+  - "портит пафосную фразу"
+  - "двигается ломаным маршрутом"
+  - "проверяет границу точной фразой"
