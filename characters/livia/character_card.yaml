@@ -1,6 +1,7 @@
 id: "char_livia"
 display_name: "Ливия"
 true_name: "Ливия Кросс"
+address_name: "Ливия"
 
 labels:
   unknown_to_akira: "Ливия"
@@ -10,10 +11,7 @@ labels:
   speaker_label_after_reveal: "Ливия"
 
 aliases:
-  - "ливия"
-  - "livia"
-  - "ливия кросс"
-  - "livia cross"
+  - "Ливия Кросс"
 reserved_aliases: []
 
 gender: "female"
@@ -36,7 +34,7 @@ start_frame:
   arc_id: "arc_001_academy_start"
   required_location_id: "loc_academy_main"
   active_at_start: true
-  start_focus: "with Akira, but independent social presence"
+  start_focus: "with Akira, independent social presence"
 
 files:
   profile: "profile.md"
@@ -66,14 +64,12 @@ loading_rules:
   always_load_with_character: ["appearance", "behavior", "voice", "knowledge", "links", "goals"]
   load_only_if_scene_requires: ["energy", "past", "habits"]
 
-canon_priority:
-  - "Use old 1198 canon for Livia's role, friendship with Akira, social line, habits, resonance power and limits."
-  - "Use the current v3 visual choice for hair: honey-blonde. Do not offer alternate hair colors."
-  - "Do not treat hidden lore as Livia's active knowledge."
+naming_rules:
+  full_name_for_identification: "Ливия Кросс"
+  scene_name: "Ливия"
+  dialogue_name: "Ливия"
 
-forbidden:
-  - "Do not make Livia a new acquaintance, new roommate or random dorm girl."
-  - "Do not make Livia Akira's shadow or narrator helper."
-  - "Do not make Livia speak, decide or feel for Akira."
-  - "Do not make Livia stupid, empty, villainous or always convenient."
-  - "Do not give Livia hidden lore without a scene source."
+canon_priority:
+  - "old 1198 canon: role, friendship with Akira, social line, habits, resonance power and limits"
+  - "v3 visual canon: honey-blonde hair"
+  - "scene knowledge only from loaded sources"
