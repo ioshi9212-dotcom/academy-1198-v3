@@ -1,5 +1,5 @@
 {
-  "updated_at": "CREATED_AT",
+  "updated_at": "{{CREATED_AT}}",
   "schema": "rating_state_v1",
   "char_akira": {
     "official_rating": null,
