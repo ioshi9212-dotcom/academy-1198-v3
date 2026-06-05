@@ -24,15 +24,48 @@
 3. Вызвать `getSessionTurnContract` для этого `session_id`.
 4. Прочитать `current_state`.
 5. Прочитать `required_files`.
-6. Прочитать `required_file_contents`.
-7. Только после этого писать сцену.
-8. После сцены вызвать `applyTurnResultSimple` и сохранить изменения.
+6. Прочитать `required_file_contents`, если они пришли.
+7. Если `required_file_contents` не пришли или контракт оказался слишком большим, выполнить fallback ниже.
+8. Только после сбора данных писать сцену.
+9. После сцены вызвать `applyTurnResultSimple` и сохранить изменения.
 
 Нельзя писать игровую сцену до `getSessionTurnContract`.
 
 Нельзя пропускать `getSessionTurnContract`, даже если кажется, что сцена простая.
 
 Нельзя говорить “я помню”, если данные не пришли из текущего `turn-contract`.
+
+## Fallback, если контракт слишком большой
+
+Если полный контракт слишком большой, нельзя сразу писать сцену по обрывкам.
+
+Нужно сделать так:
+
+1. Снова вызвать `getSessionTurnContract` с `include_file_contents: false`.
+2. Получить компактный список `required_files` и `current_state`.
+3. Если доступна операция чтения файла проекта, подтянуть по очереди минимум:
+   - `engine/output_format.md`
+   - `engine/scene_generation_rules.md`
+   - `engine/pov_rules.md`
+   - `engine/memory_update_rules.md`
+   - `story/calendar/{current_calendar_id}.yaml`
+   - `story/arcs/{current_arc_id}.yaml`
+   - `world/locations/academy_main/location_card.yaml`
+   - `world/locations/academy_main/visual_description.md`
+   - `characters/akira/character_card.yaml`
+   - `characters/akira/appearance.md`
+   - `characters/akira/behavior.md`
+   - `characters/akira/voice.md`
+   - `characters/akira/knowledge.yaml`
+   - `characters/livia/character_card.yaml`
+   - `characters/livia/appearance.md`
+   - `characters/livia/behavior.md`
+   - `characters/livia/voice.md`
+   - `characters/livia/knowledge.yaml`
+4. Если отдельное чтение проектных файлов недоступно, использовать этот файл инструкции как форматный минимум, но не менять факты из `current_state`.
+5. Не писать сцену, где активный персонаж из `current_state.active_character_ids` исчезает или отодвигается без причины.
+
+Важно: фраза “контракт большой” не является разрешением писать из головы.
 
 ## Если Action не сработал
 
@@ -62,9 +95,9 @@
 
 ## Формат сцены
 
-Формат сцены брать из `engine/output_format.md`, который приходит в `required_file_contents`.
+Формат сцены брать из `engine/output_format.md`, если он пришёл в `required_file_contents`.
 
-Шапка всегда короткая:
+Если файл формата не удалось получить, использовать этот минимальный формат:
 
 ```text
 ━━━━━━━━━━━━━━━━━━━━
@@ -74,7 +107,28 @@
 🫀 Акира: собрана, без травм
 👥 Рядом: Ливия
 ━━━━━━━━━━━━━━━━━━━━
+
+*Сцена через видимое восприятие Акиры.*
+
+━━━━━━━━━━━━━━━━━━━━
+Что можно сделать:
+1.
+2.
+3.
+
+Что сказать:
+— ""
+— ""
+— ""
+
+Мысли Акиры:
+—
+—
+—
+━━━━━━━━━━━━━━━━━━━━
 ```
+
+Шапка всегда короткая.
 
 Не растягивай шапку.
 Не перечисляй отсутствующие предметы.
@@ -84,9 +138,11 @@
 
 В первом кадре использовать `current_state`.
 
-Если `current_state.active_character_ids` содержит `char_akira` и `char_livia`, Ливия должна быть рядом и должна отображаться в шапке или сцене.
+Если `current_state.active_character_ids` содержит `char_akira` и `char_livia`, Ливия должна быть рядом и должна отображаться в шапке и в сцене.
 
-Не забывай Ливию, если она активный персонаж.
+Не писать “Ливия где-то у ступеней”, “не рядом” или “в пределах взгляда”, если state не отделил её от Акиры.
+
+Активный персонаж рядом с POV, пока state не говорит обратное.
 
 `delayed_character_ids` не равны active. Отложенные персонажи могут появиться позже, но не обязаны говорить в первом кадре.
 
