@@ -1,3 +1,3 @@
-# Zones
+# Removed
 
-Placeholder for zones: dorms, training, cafeteria, medical, yard, sports court, command area.
+Obsolete placeholder.
