@@ -1,5 +1,5 @@
 {
-  "updated_at": "CREATED_AT",
+  "updated_at": "{{CREATED_AT}}",
   "schema": "director_notes_v1",
   "current_director_focus": [
     {
