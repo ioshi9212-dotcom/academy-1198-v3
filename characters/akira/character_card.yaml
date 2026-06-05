@@ -15,13 +15,14 @@ aliases:
 reserved_aliases: []
 
 gender: "female"
+age: 17
 age_range: "17-21"
-height: "около 160 см / ниже среднего"
+height: "около 165 см"
 
 role:
   public_role: "студентка Академии 1198; player character / POV character"
   hidden_role: null
-  current_status: "новоприбывшая на стартовой рамке Академии"
+  current_status: "новоприбывшая Академии"
   faction_id: "academy_students"
   location_anchor: "loc_academy_main"
 
@@ -73,6 +74,14 @@ pov_access:
     - "surrender"
     - "emotional conclusion"
     - "hidden memory reveal"
+    - "mask selection"
+
+behavior_masks:
+  available:
+    - "cold_observing"
+    - "chaotic_poisonous"
+  rule: "Маска поведения выбирается игроком/текущей сценой; движок не меняет её сам как эмоцию или решение."
+  default_for_start: "cold_observing unless user plays otherwise"
 
 loading_rules:
   always_load_with_character: ["appearance", "behavior", "voice", "knowledge", "links", "energy", "goals"]
@@ -80,7 +89,8 @@ loading_rules:
 
 canon_priority:
   - "Use current repository state first."
-  - "Use older canon only after adapting it to the 1198-08-15 Academy start."
+  - "Use old 1198 canon for Akira age, height, hair length, no-bangs design, habits, knowledge and spatial power rules."
+  - "Do not import later visual variants into the 1198 Academy start."
   - "Do not treat hidden lore as Akira's active knowledge."
 
 forbidden:
@@ -90,3 +100,4 @@ forbidden:
   - "Do not reveal hidden lore through narration if Akira does not know it."
   - "Do not use removed start contexts as her current start frame."
   - "Do not make another character the first scene focus without calendar or arc reason."
+  - "Do not make Akira automatically reveal her power ceiling at the Academy start."
