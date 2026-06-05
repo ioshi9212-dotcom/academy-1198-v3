@@ -89,15 +89,11 @@ loading_rules:
 
 canon_priority:
   - "Use current repository state first."
-  - "Use old 1198 canon for Akira age, height, hair length, no-bangs design, habits, knowledge and spatial power rules."
-  - "Do not import later visual variants into the 1198 Academy start."
+  - "Use old 1198 canon for Akira age, height, appearance, habits, knowledge and spatial power rules."
   - "Do not treat hidden lore as Akira's active knowledge."
 
 forbidden:
-  - "Do not write major actions for Akira unless the user gave them."
-  - "Do not write direct replies for Akira unless the user gave the exact reply."
-  - "Do not make Akira trust, forgive, confess, fear, obey, surrender or fall in love automatically."
+  - "Do not write major actions or direct replies for Akira unless the user gave them."
+  - "Do not force Akira's trust, fear, romance, forgiveness, surrender or emotional conclusions."
   - "Do not reveal hidden lore through narration if Akira does not know it."
-  - "Do not use removed start contexts as her current start frame."
-  - "Do not make another character the first scene focus without calendar or arc reason."
-  - "Do not make Akira automatically reveal her power ceiling at the Academy start."
+  - "Do not give NPCs knowledge without a loaded source."
