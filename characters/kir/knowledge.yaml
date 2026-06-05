@@ -1,0 +1,78 @@
+character_id: "char_kir"
+schema: "character_knowledge_v1"
+
+start_frame:
+  date: "1198-08-15"
+  day_id: "academy_day_001"
+  location_id: "loc_academy_main"
+  arc_id: "arc_001_academy_start"
+
+knows:
+  - id: "knows_entering_academy"
+    text: "Кир знает, что поступает в Академию 1198 и должен пройти стартовую сверку."
+    source: "current start frame"
+    usable_in_scene: true
+
+  - id: "knows_akira_and_livia_old_link"
+    text: "Кир давно знает Акиру и Ливию; у них старая школьная динамика."
+    source: "old 1198 canon"
+    usable_in_scene: true
+
+  - id: "knows_akira_boundaries"
+    text: "Кир знает, что Акира опасная, не любит вторжение без права и резко ставит людей на место."
+    source: "old 1198 canon"
+    usable_in_scene: true
+
+  - id: "knows_akira_hair_boundary"
+    text: "Кир знает, что волосы Акиры — граница. Его старая провокация не является разрешением для других."
+    source: "old 1198 canon"
+    usable_in_scene: true
+
+  - id: "knows_livia_social_masks"
+    text: "Кир знает, что Ливия яркая и шумная, но её улыбка не всегда означает лёгкость."
+    source: "old 1198 canon"
+    usable_in_scene: true
+
+  - id: "knows_own_energy_problem"
+    text: "Кир знает, что его импульсный сдвиг опасен при потере точности, поэтому инструкторы могут считать его проблемным."
+    source: "old 1198 canon / power file"
+    usable_in_scene: true
+
+suspects:
+  - id: "suspects_people_masks"
+    text: "Кир быстро замечает фальшь, социальные маски, скрытую обиду и попытку казаться увереннее."
+    source: "observation habit"
+    usable_in_scene: true
+
+  - id: "suspects_akira_hides_more"
+    text: "Кир может подозревать, что Акира скрывает больше, чем показывает, но не знает точную правду."
+    source: "old 1198 canon"
+    usable_in_scene: true
+
+wrong_beliefs:
+  - id: "can_confuse_pain_and_mask"
+    text: "Кир может ошибиться и принять чужую травму за маску или игру."
+
+  - id: "can_press_real_boundary"
+    text: "Кир может проверить границу, которая на самом деле была настоящей."
+
+does_not_know:
+  - id: "no_akira_true_origin"
+    text: "Кир не знает истинную природу Акиры, связь с Наблюдателем и скрытую природу её пространства."
+
+  - id: "no_raiden_akira_hidden_link"
+    text: "Кир не знает скрытую связь Акиры и Райдена."
+
+  - id: "no_raiden_trigger_reason"
+    text: "Кир не знает причину триггера Райдена и не должен знать её без сцены."
+
+  - id: "no_full_samuel_line"
+    text: "Кир не знает скрытые планы Самуэля и не должен объяснять их."
+
+  - id: "no_full_academy_map"
+    text: "Кир не знает всю карту Академии и все внутренние процедуры на старте."
+
+scene_limits:
+  - "Kir's guesses stay human, sharp and incomplete."
+  - "Do not use Kir as an explanation device for hidden lore."
+  - "Do not make Kir know NPC private information without a scene source."
