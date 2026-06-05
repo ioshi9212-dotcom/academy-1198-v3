@@ -15,15 +15,24 @@ aliases:
 reserved_aliases: []
 
 gender: "female"
-age: null
-height: null
+age_range: "17-21"
+height: "около 160 см / ниже среднего"
 
 role:
   public_role: "студентка Академии 1198; player character / POV character"
   hidden_role: null
   current_status: "новоприбывшая на стартовой рамке Академии"
-  faction_id: null
+  faction_id: "academy_students"
   location_anchor: "loc_academy_main"
+
+start_frame:
+  calendar_id: "academy_start"
+  date: "1198-08-15"
+  day_id: "academy_day_001"
+  arc_id: "arc_001_academy_start"
+  required_location_id: "loc_academy_main"
+  active_at_start: true
+  start_focus: "Akira visible POV only"
 
 files:
   appearance: "appearance.md"
@@ -43,18 +52,41 @@ scene_usage:
   requires_story_reason: false
   can_be_background: false
   can_speak_without_card_loaded: true
+  primary_pov_character: true
 
 pov_access:
-  engine_may_describe: ["visible body reactions", "physical state", "consequences", "what Akira sees", "what Akira hears", "what Akira physically feels"]
-  engine_must_not_force: ["decision", "direct reply", "trust", "forgiveness", "romance", "confession", "surrender", "emotional conclusion"]
+  engine_may_describe:
+    - "visible body reactions"
+    - "physical state"
+    - "consequences"
+    - "what Akira sees"
+    - "what Akira hears"
+    - "what Akira physically feels"
+    - "visible tactical attention: exits, people, weak points, routes"
+  engine_must_not_force:
+    - "decision"
+    - "direct reply"
+    - "trust"
+    - "forgiveness"
+    - "romance"
+    - "confession"
+    - "surrender"
+    - "emotional conclusion"
+    - "hidden memory reveal"
 
 loading_rules:
   always_load_with_character: ["appearance", "behavior", "voice", "knowledge", "links", "energy", "goals"]
   load_only_if_scene_requires: ["past", "habits"]
+
+canon_priority:
+  - "Use current repository state first."
+  - "Use older canon only after adapting it to the 1198-08-15 Academy start."
+  - "Do not treat hidden lore as Akira's active knowledge."
 
 forbidden:
   - "Do not write major actions for Akira unless the user gave them."
   - "Do not write direct replies for Akira unless the user gave the exact reply."
   - "Do not make Akira trust, forgive, confess, fear, obey, surrender or fall in love automatically."
   - "Do not reveal hidden lore through narration if Akira does not know it."
-  - "Do not use old 1206/Eastern Sector context as her current start frame."
+  - "Do not use removed start contexts as her current start frame."
+  - "Do not make another character the first scene focus without calendar or arc reason."
