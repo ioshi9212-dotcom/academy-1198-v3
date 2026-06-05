@@ -1,0 +1,4 @@
+location_id: "loc_academy_main"
+display_name: "Academy Main"
+files:
+  visual: "visual_description.md"
