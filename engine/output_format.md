@@ -8,6 +8,28 @@ This format has highest priority for scene output.
 
 If the answer is not in this format, rewrite it before sending.
 
+## Allowed play response parts
+
+A play response contains only:
+
+1. emoji header;
+2. scene body;
+3. choice block;
+4. speech options;
+5. POV thoughts.
+
+No assistant commentary before or after the scene.
+
+Do not mention:
+
+- scene saved;
+- API;
+- Actions;
+- turn-contract;
+- state;
+- technical status;
+- “you can continue” outside the in-world choice block.
+
 ## Header
 
 Every play scene starts with this emoji header format.
@@ -42,24 +64,7 @@ Do not write English location names if a Russian header name exists.
 
 Do not list absent items.
 
-Keep the `🎒` line short. It may include:
-
-- carried items;
-- nearby active characters;
-- important objects in the scene;
-- relevant screens, markers, counters, doors, lines, zones.
-
-Bad:
-
-```text
-В руках ничего. В карманах ничего. Оружия нет.
-```
-
-Good:
-
-```text
-🎒 При себе / рядом: телефон, резинка, Ливия, стойки сверки, указатели
-```
+Keep the `🎒` line short.
 
 If no relevant item/object/person is present, omit the `🎒` line.
 
@@ -67,12 +72,12 @@ If no relevant item/object/person is present, omit the `🎒` line.
 
 Scene body is written through visible POV.
 
-Use 3-5 scene beats for a meaningful scene:
+Use 3-5 scene beats and usually 5-9 short paragraphs/units for a meaningful scene:
 
 1. environment or Academy system in motion;
 2. what the POV character notices;
 3. visible reaction/action from active or nearby characters;
-4. pressure, conflict, rule, schedule, access, reputation or relationship movement;
+4. pressure, conflict, rule, schedule, access, reputation, event seed or relationship movement;
 5. stop point where the player can intervene.
 
 Do not stop after pure scenery.
@@ -81,7 +86,24 @@ Do not write a scene that is only:
 
 - weather;
 - one decorative paragraph;
-- "what does Akira do?" with no pressure.
+- “what does Akira do?” with no pressure;
+- procedural registration explanation.
+
+## Event engine in scene
+
+Use event pressure when fitting:
+
+- gossip;
+- jealousy;
+- rating;
+- provocation;
+- energy flare;
+- minor fight;
+- instructor attention;
+- delayed character entry;
+- social comparison.
+
+Do not show the hidden director plan to the user.
 
 ## Descriptions
 
@@ -162,6 +184,17 @@ Use 2-4 action options.
 
 Use 2-4 short speech options.
 
+Options must match POV character.
+
+For Akira:
+
+- short;
+- dry;
+- observant;
+- controlled;
+- no polite default unless masking;
+- no long explanation.
+
 Thoughts must be short, concrete and in character.
 
 ## Self-check before sending
@@ -169,11 +202,14 @@ Thoughts must be short, concrete and in character.
 Before sending, check:
 
 - emoji header exists;
+- no assistant meta-commentary exists;
 - header uses the exact line style from this file;
 - date/day/time/location/weather came from state or scene_contract;
 - location is not an English fallback if Russian name exists;
 - active/nearby characters were not omitted without reason;
 - body has 3-5 meaningful beats unless this is a pure transition;
+- at least one scene pressure exists;
+- if possible, event_engine_slice affected the scene;
 - dialogue uses bold speaker + long dash;
 - descriptions are italic separate paragraphs;
 - no NPC thoughts as facts;

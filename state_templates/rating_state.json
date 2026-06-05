@@ -1,0 +1,21 @@
+{
+  "updated_at": "CREATED_AT",
+  "schema": "rating_state_v1",
+  "char_akira": {
+    "official_rating": null,
+    "unofficial_attention": 0,
+    "instructor_note_level": 0,
+    "peer_attention": 0,
+    "rumor_heat": 0,
+    "known_for": [],
+    "risk_flags": []
+  },
+  "char_livia": {
+    "official_rating": null,
+    "social_visibility": 1,
+    "unofficial_attention": 0,
+    "rumor_heat": 0,
+    "known_for": [],
+    "risk_flags": []
+  }
+}

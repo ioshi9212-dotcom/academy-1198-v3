@@ -1,0 +1,6 @@
+{
+  "updated_at": "CREATED_AT",
+  "schema": "gossip_state_v1",
+  "description": "Rumors, attention, whispers, glances and social distortion.",
+  "items": {}
+}

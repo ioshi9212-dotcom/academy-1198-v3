@@ -1,0 +1,6 @@
+{
+  "updated_at": "CREATED_AT",
+  "schema": "energy_incidents_v1",
+  "description": "Visible energy incidents, from small flickers to serious failures.",
+  "items": {}
+}

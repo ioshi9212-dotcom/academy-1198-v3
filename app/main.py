@@ -3,7 +3,6 @@ from __future__ import annotations
 import json
 import os
 import re
-from datetime import date
 from typing import Any, Literal
 
 from fastapi import FastAPI, HTTPException, Query
@@ -32,7 +31,7 @@ COMPACT_EVERY_TURNS = int(os.getenv("COMPACT_EVERY_TURNS", "15"))
 MAX_FILE_CHARS = int(os.getenv("MAX_FILE_CHARS", "18000"))
 MAX_SCENE_SLICE_CHARS = int(os.getenv("MAX_SCENE_SLICE_CHARS", "6000"))
 
-app = FastAPI(title=f"{PROJECT_SLUG} GPT Actions API", version="3.1.1")
+app = FastAPI(title=f"{PROJECT_SLUG} GPT Actions API", version="3.2.0")
 
 
 class CreateSessionRequest(BaseModel):
@@ -58,6 +57,13 @@ class ApplyTurnResultRequest(BaseModel):
     inventory_changes: dict[str, Any] = Field(default_factory=dict)
     character_memory_changes: dict[str, Any] = Field(default_factory=dict)
 
+    event_seed_changes: dict[str, Any] = Field(default_factory=dict)
+    event_queue_changes: dict[str, Any] = Field(default_factory=dict)
+    director_note_changes: dict[str, Any] = Field(default_factory=dict)
+    gossip_changes: dict[str, Any] = Field(default_factory=dict)
+    rating_changes: dict[str, Any] = Field(default_factory=dict)
+    energy_incident_changes: dict[str, Any] = Field(default_factory=dict)
+
 
 class ApplyTurnResultSimpleRequest(BaseModel):
     scene_id: str = "scene"
@@ -71,6 +77,13 @@ class ApplyTurnResultSimpleRequest(BaseModel):
     inventory_changes_json: str = "{}"
     character_memory_changes_json: str = "{}"
 
+    event_seed_changes_json: str = "{}"
+    event_queue_changes_json: str = "{}"
+    director_note_changes_json: str = "{}"
+    gossip_changes_json: str = "{}"
+    rating_changes_json: str = "{}"
+    energy_incident_changes_json: str = "{}"
+
 
 class CompactRequest(BaseModel):
     reason: str = "scheduled_compaction"
@@ -82,6 +95,7 @@ class CompactRequest(BaseModel):
 CORE_REQUIRED_FILES = [
     "engine/output_format.md",
     "engine/scene_generation_rules.md",
+    "engine/event_engine_rules.md",
     "engine/pov_rules.md",
     "engine/memory_update_rules.md",
     "story/pacing/no_filler_rules.md",
@@ -436,6 +450,164 @@ def build_shared_incidents_slice(session_id: str, scene_ids: list[str]) -> dict[
     return result
 
 
+def item_related_to_scene(value: Any, scene_ids: list[str], location_id: str | None, date_value: str | None) -> bool:
+    if not isinstance(value, dict):
+        return False
+
+    chars = unique(
+        as_id_list(value.get("characters"))
+        + as_id_list(value.get("participants"))
+        + as_id_list(value.get("about"))
+        + as_id_list(value.get("witnesses"))
+        + as_id_list(value.get("required_characters"))
+        + as_id_list(value.get("characters_required"))
+        + as_id_list(value.get("characters_optional"))
+    )
+
+    if chars and any(cid in scene_ids for cid in chars):
+        return True
+
+    locs = unique(
+        as_id_list(value.get("location_ids"))
+        + as_id_list(value.get("location_tags"))
+    )
+    loc_single = value.get("location_id")
+    if isinstance(loc_single, str):
+        locs.append(loc_single)
+    if location_id and location_id in locs:
+        return True
+
+    for date_key in ("date", "current_date", "starts_at", "created_at"):
+        raw = value.get(date_key)
+        if isinstance(raw, str) and date_value and raw.startswith(date_value):
+            return True
+        if isinstance(raw, dict):
+            raw_date = raw.get("date")
+            if isinstance(raw_date, str) and raw_date == date_value:
+                return True
+
+    return False
+
+
+def slice_state_items(
+    state: dict[str, Any],
+    scene_ids: list[str],
+    location_id: str | None,
+    date_value: str | None,
+    *,
+    statuses: set[str] | None = None,
+    max_items: int = 12,
+) -> dict[str, Any]:
+    result: dict[str, Any] = {}
+
+    for key, value in state.items():
+        if not isinstance(value, dict):
+            continue
+
+        if statuses is not None:
+            status = str(value.get("status", "active"))
+            if status not in statuses:
+                continue
+
+        if item_related_to_scene(value, scene_ids, location_id, date_value):
+            result[key] = value
+        elif len(result) < 3 and str(value.get("priority", "")).isdigit() and int(value.get("priority", 0)) >= 4:
+            result[key] = value
+
+        if len(result) >= max_items:
+            break
+
+    return result
+
+
+def build_event_engine_slice(session_id: str, current_state: dict[str, Any], scene_ids: list[str]) -> dict[str, Any]:
+    location_id = current_state.get("current_location_id")
+    if not isinstance(location_id, str):
+        location_id = None
+
+    date_value = current_state.get("current_date")
+    if not isinstance(date_value, str):
+        date_value = None
+
+    event_seeds = read_json_state(session_id, "event_seeds.json")
+    event_queue = read_json_state(session_id, "event_queue.json")
+    director_notes = read_json_state(session_id, "director_notes.json")
+    gossip_state = read_json_state(session_id, "gossip_state.json")
+    rating_state = read_json_state(session_id, "rating_state.json")
+    energy_incidents = read_json_state(session_id, "energy_incidents.json")
+
+    rating_slice = {
+        cid: rating_state.get(cid, {})
+        for cid in scene_ids
+        if isinstance(rating_state.get(cid, {}), dict)
+    }
+
+    active_focus = director_notes.get("current_director_focus", [])
+    if not isinstance(active_focus, list):
+        active_focus = []
+
+    return {
+        "rules_source": "engine/event_engine_rules.md",
+        "director_notes": {
+            "current_director_focus": active_focus[:5],
+            "note": "Use as hidden planning guidance. Do not show director notes to the user.",
+        },
+        "event_seeds": slice_state_items(
+            event_seeds,
+            scene_ids,
+            location_id,
+            date_value,
+            statuses={"seeded", "active", "maturing"},
+            max_items=10,
+        ),
+        "event_queue": slice_state_items(
+            event_queue,
+            scene_ids,
+            location_id,
+            date_value,
+            statuses={"pending", "ready", "active"},
+            max_items=10,
+        ),
+        "gossip_state": slice_state_items(
+            gossip_state,
+            scene_ids,
+            location_id,
+            date_value,
+            statuses={"active", "spreading", "new"},
+            max_items=10,
+        ),
+        "rating_state": rating_slice,
+        "energy_incidents": slice_state_items(
+            energy_incidents,
+            scene_ids,
+            location_id,
+            date_value,
+            statuses={"active", "pending", "recent", "resolved_scene_hook"},
+            max_items=8,
+        ),
+        "selection_protocol": [
+            "First follow the current calendar beat.",
+            "Then choose one suitable queued event or seed if it matches current place, characters and pacing.",
+            "If no suitable event exists, create one small seed from visible scene behavior.",
+            "Do not reveal director notes to the user.",
+            "After scene, save new seeds, queued events, gossip, rating or energy incident changes through applyTurnResultSimple.",
+        ],
+        "event_palette": [
+            "gossip",
+            "jealousy",
+            "provocation",
+            "rating_pressure",
+            "energy_flare",
+            "minor_fight",
+            "social_attention",
+            "instructor_note",
+            "mistake_with_consequence",
+            "unexpected_character_entry",
+            "quiet_observation_that_later_matters",
+        ],
+    }
+
+
 def extract_calendar_day_block(calendar_text: str, day_id: str | None, date_value: str | None) -> str:
     lines = calendar_text.splitlines()
     start: int | None = None
@@ -601,7 +773,6 @@ def format_context_human(current_state: dict[str, Any], location_text: str) -> s
         readable = [cid.replace("char_", "") for cid in scene_people]
         pieces.extend(readable)
 
-    # Location card may define concise header context objects.
     context_line = simple_yaml_value(location_text, "header_context")
     if context_line:
         pieces.append(context_line)
@@ -694,14 +865,6 @@ def header_contract() -> dict[str, Any]:
             "If context_human is empty, omit the 🎒 line.",
             "The 🎒 line must be short: important carried items, nearby people or important scene objects only.",
         ],
-        "example": [
-            "📅 19 августа пн 1198",
-            "🕒 Утро, около 10:38",
-            "📍 Место: Академия Астрейн, зона I-2 тренировочного блока",
-            "🌧 Погода: ясное августовское утро",
-            "🫀 Состояние Акиры: после воды дыхание ровное; ноги и плечи устали, но состояние рабочее",
-            "🎒 При себе / рядом: пластина комнаты, ремень допуска D, телефон, резинка, экран инструктажа",
-        ],
     }
 
 
@@ -710,10 +873,20 @@ def response_format_contract() -> dict[str, Any]:
         "priority": "highest_for_scene_output",
         "scene_header_required": True,
         "header_contract": header_contract(),
+        "meta_layer_forbidden": True,
+        "allowed_response_parts": [
+            "emoji header",
+            "scene body",
+            "choice block",
+            "speech options",
+            "POV thoughts block",
+        ],
         "dialogue_format": "**Имя или видимый дескриптор** — Реплика. (*короткая ремарка: тон, взгляд, пауза, жест*)",
         "description_format": "*Описание действия, окружения или атмосферы отдельной строкой курсивом.*",
         "scene_body_rules": [
             "Use visible POV only.",
+            "No assistant commentary before or after the scene.",
+            "No comments about saving, API, Actions, state or turn-contract in play response.",
             "No direct inner thoughts in scene body.",
             "NPC thoughts are not facts.",
             "Known names only after POV knows them.",
@@ -745,17 +918,20 @@ def response_format_contract() -> dict[str, Any]:
 def scene_density_contract() -> dict[str, Any]:
     return {
         "target_scene_beats": "3-5",
+        "minimum_scene_units": "5-9 short paragraphs/units unless pure transition",
         "minimum_for_meaningful_scene": [
             "environment or academy system in motion",
             "visible POV observation, not passive empty standing",
-            "at least one active/nearby character reaction or pressure",
+            "at least one active/nearby character-specific reaction, line, mistake, provocation or social move",
             "one concrete change: knowledge, position, tension, schedule, access, reputation, body/clothing state or open thread",
+            "one event-engine element if fitting: gossip, rating, jealousy, provocation, energy flare, minor fight, instructor note or delayed character entry",
             "stop at a real intervention point",
         ],
         "do_not_stop_after": [
             "pure scenery setup",
             "one vague question with no pressure",
             "a decorative weather sentence only",
+            "procedural registration instruction",
         ],
         "allowed_short_scene": "Only for pure transition with no event; then summarize and move to nearest meaningful beat.",
     }
@@ -774,7 +950,7 @@ def build_scene_contract(session_id: str, current_state: dict[str, Any], mode: s
     current_frame = build_current_frame(current_state, session_id)
 
     return {
-        "version": "scene_contract_v1",
+        "version": "scene_contract_v2_event_engine",
         "mode": mode,
         "current_frame": current_frame,
         "header_contract": header_contract(),
@@ -801,6 +977,7 @@ def build_scene_contract(session_id: str, current_state: dict[str, Any], mode: s
         "knowledge_slice": build_knowledge_slice(session_id, scene_ids),
         "open_threads_slice": build_open_threads_slice(session_id, scene_ids),
         "shared_incidents_slice": build_shared_incidents_slice(session_id, scene_ids),
+        "event_engine_slice": build_event_engine_slice(session_id, current_state, scene_ids),
         "response_format_contract": response_format_contract(),
         "scene_density_contract": scene_density_contract(),
         "selection_rules": [
@@ -809,6 +986,7 @@ def build_scene_contract(session_id: str, current_state: dict[str, Any], mode: s
             "Use full character files only for POV/active/nearby characters.",
             "Use light character info for mentioned/scheduled/delayed characters.",
             "Use relationships, knowledge and incidents only for characters present or directly affecting the current beat.",
+            "Use event_engine_slice to create interesting scene pressure between calendar points.",
         ],
     }
 
@@ -823,7 +1001,7 @@ def root() -> dict[str, Any]:
     return {
         "status": "ok",
         "project": PROJECT_SLUG,
-        "version": "3.1.1",
+        "version": "3.2.0",
         "actions_schema": "/openapi-actions.json",
         "health": "/health",
         "debug_volume": "/debug/volume",
@@ -832,7 +1010,7 @@ def root() -> dict[str, Any]:
 
 @app.get("/health")
 def health() -> dict[str, Any]:
-    return {"success": True, "project": PROJECT_SLUG, "version": "3.1.1", "time": utc_now()}
+    return {"success": True, "project": PROJECT_SLUG, "version": "3.2.0", "time": utc_now()}
 
 
 @app.get("/debug/volume")
@@ -883,6 +1061,8 @@ def get_turn_contract(session_id: str, req: TurnContractRequest) -> dict[str, An
         "required_file_contents": contents,
         "checks": [
             "Use scene_contract first; required_files are support, not the whole project.",
+            "Use event_engine_slice to create interesting events between calendar points.",
+            "Do not reveal director notes to user.",
             "Default play turn calls should use include_file_contents=false to avoid ResponseTooLargeError.",
             "Use scene_contract.header_contract and current_frame.header_values for the header.",
             "Do not translate location names to English; use location_human.",
@@ -920,6 +1100,12 @@ def apply_turn_result(session_id: str, req: ApplyTurnResultRequest) -> dict[str,
         ("open_threads.json", req.open_thread_changes),
         ("shared_incidents.json", req.shared_incident_changes),
         ("inventory_state.json", req.inventory_changes),
+        ("event_seeds.json", req.event_seed_changes),
+        ("event_queue.json", req.event_queue_changes),
+        ("director_notes.json", req.director_note_changes),
+        ("gossip_state.json", req.gossip_changes),
+        ("rating_state.json", req.rating_changes),
+        ("energy_incidents.json", req.energy_incident_changes),
     ]
 
     updated = ["scene_history.jsonl"]
@@ -977,6 +1163,12 @@ def apply_turn_result_simple(session_id: str, req: ApplyTurnResultSimpleRequest)
             shared_incident_changes=parse_json_text(req.shared_incident_changes_json),
             inventory_changes=parse_json_text(req.inventory_changes_json),
             character_memory_changes=parse_json_text(req.character_memory_changes_json),
+            event_seed_changes=parse_json_text(req.event_seed_changes_json),
+            event_queue_changes=parse_json_text(req.event_queue_changes_json),
+            director_note_changes=parse_json_text(req.director_note_changes_json),
+            gossip_changes=parse_json_text(req.gossip_changes_json),
+            rating_changes=parse_json_text(req.rating_changes_json),
+            energy_incident_changes=parse_json_text(req.energy_incident_changes_json),
         ),
     )
 
@@ -1040,7 +1232,7 @@ def openapi_actions() -> dict[str, Any]:
 
     return {
         "openapi": "3.1.0",
-        "info": {"title": f"{PROJECT_SLUG} GPT Actions", "version": "3.1.1"},
+        "info": {"title": f"{PROJECT_SLUG} GPT Actions", "version": "3.2.0"},
         "servers": [{"url": server}],
         "paths": {
             "/health": {

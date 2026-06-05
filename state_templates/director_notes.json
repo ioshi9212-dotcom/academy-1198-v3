@@ -1,0 +1,18 @@
+{
+  "updated_at": "CREATED_AT",
+  "schema": "director_notes_v1",
+  "current_director_focus": [
+    {
+      "focus_id": "focus_academy_start_alive_scene",
+      "purpose": "Сделать старт Академии живым, не процедурным.",
+      "next_scene_intent": "Показывать правила через людей, давление, внимание и мелкие события, а не через сухую регистрацию.",
+      "active_seeds": [],
+      "must_not_do": [
+        "не превращать сцену в инструкцию регистрации",
+        "не делать active NPC справочниками",
+        "не раскрывать скрытый лор напрямую"
+      ],
+      "status": "active"
+    }
+  ]
+}
