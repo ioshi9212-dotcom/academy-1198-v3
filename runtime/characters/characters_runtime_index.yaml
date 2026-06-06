@@ -1,0 +1,9 @@
+schema: characters_runtime_index_v1
+description: "Compact runtime summaries used by scene_contract. These replace full behavior.md/voice.md in normal play."
+characters:
+  char_akira: runtime/characters/akira.yaml
+  char_livia: runtime/characters/livia.yaml
+  char_kir: runtime/characters/kir.yaml
+  char_kiara: runtime/characters/kiara.yaml
+  char_haru: runtime/characters/haru.yaml
+  char_raiden: runtime/characters/raiden.yaml
