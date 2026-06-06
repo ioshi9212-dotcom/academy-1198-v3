@@ -33,7 +33,7 @@ MAX_FILE_CHARS = int(os.getenv("MAX_FILE_CHARS", "18000"))
 MAX_SCENE_SLICE_CHARS = int(os.getenv("MAX_SCENE_SLICE_CHARS", "2200"))
 RUNTIME_SUMMARY_CHARS = int(os.getenv("RUNTIME_SUMMARY_CHARS", "1600"))
 
-app = FastAPI(title=f"{PROJECT_SLUG} GPT Actions API", version="3.4.3")
+app = FastAPI(title=f"{PROJECT_SLUG} GPT Actions API", version="3.4.4")
 
 RESERVED_SESSION_IDS = {"default", "new", "none", "null", "undefined", "session"}
 
@@ -139,6 +139,7 @@ CORE_REQUIRED_FILES = [
     "engine/memory_update_rules.md",
     "engine/runtime_character_slice_rules.md",
     "engine/scene_assembly_gate.md",
+    "engine/scene_quality_gate.md",
     "story/pacing/no_filler_rules.md",
     "state/current_state.json",
     "state/recent_turns.md",
@@ -1294,25 +1295,66 @@ def response_format_contract() -> dict[str, Any]:
         "forbidden": [
             "technical commentary",
             "API/Actions/state/contract/debug mentions",
+            "empty header before contract",
+            "placeholder header fields",
             "Что делает Акира? instead of options",
             "freeform title header",
+            "summary instead of scene",
+            "generic polite line options for Akira v2",
         ],
+        "quality_note": "Do not answer with a fast stub. Write a real scene with NPC dialogue, pressure and consequence.",
     }
 
 
 def scene_density_contract() -> dict[str, Any]:
     return {
-        "target_scene_beats": "3-5",
+        "target_scene_beats": "4-6",
+        "normal_scene_units": "7-12 short paragraphs/units; not a one-paragraph summary",
         "minimum_for_meaningful_scene": [
             "environment/system in motion",
             "visible POV observation",
-            "active/nearby character-specific reaction",
+            "active/nearby character-specific reaction or direct line",
             "concrete pressure/change",
+            "world advances even if POV acts calmly",
             "real intervention point",
         ],
         "anti_null_scene": [
             "Do not end with nothing happened / nobody noticed unless another concrete trace exists.",
             "A careful action can reduce danger, not erase world reaction automatically.",
+        ],
+    }
+
+
+
+def scene_quality_gate_contract() -> dict[str, Any]:
+    return {
+        "priority": "hard_quality_gate",
+        "forbidden_fast_response_patterns": [
+            "empty header before contract",
+            "technical preface before scene",
+            "summary instead of scene",
+            "one-paragraph environment-only scene",
+            "no direct NPC dialogue",
+            "generic choices not tied to pressure",
+            "passive player action causing passive world",
+        ],
+        "minimum_scene_requirements": [
+            "Use filled header only after scene_contract is loaded.",
+            "No visible API/contract/loading commentary.",
+            "Scene body must be 7-12 short paragraphs/units for normal meaningful play.",
+            "At least one active NPC must speak or make a character-specific visible move.",
+            "At least one concrete pressure must change or press forward.",
+            "If player action is passive, the world still advances: queue moves, staff calls, someone notices, route changes, rumor/attention starts.",
+            "Choices must be in Akira's selected variant voice, not polite generic UI.",
+            "Thoughts must be Akira's real tactical/poisonous thoughts, not author summary.",
+        ],
+        "rewrite_before_sending_if": [
+            "header has empty fields",
+            "scene contains 'нужно собрать контракт' or other technical text",
+            "scene can be summarized as 'went calmly, observed, nothing happened'",
+            "Livia is reduced to background/noise",
+            "Akira v2 sounds polite or neutral",
+            "there is no new pressure, consequence or intervention point",
         ],
     }
 
@@ -1443,6 +1485,7 @@ def build_scene_contract(session_id: str, current_state: dict[str, Any], mode: s
         "memory_write_contract": memory_write_contract(),
         "response_format_contract": response_format_contract(),
         "scene_density_contract": scene_density_contract(),
+        "scene_quality_gate_contract": scene_quality_gate_contract(),
         "selection_rules": [
             "Use character_slice runtime_summary, not full behavior.md/voice.md, in normal play.",
             "Use relationship_slice and behavior_next before NPC reactions.",
@@ -1463,7 +1506,7 @@ def root() -> dict[str, Any]:
     return {
         "status": "ok",
         "project": PROJECT_SLUG,
-        "version": "3.4.3",
+        "version": "3.4.4",
         "actions_schema": "/openapi-actions.json",
         "health": "/health",
         "debug_volume": "/debug/volume",
@@ -1472,7 +1515,7 @@ def root() -> dict[str, Any]:
 
 @app.get("/health")
 def health() -> dict[str, Any]:
-    return {"success": True, "project": PROJECT_SLUG, "version": "3.4.3", "time": utc_now()}
+    return {"success": True, "project": PROJECT_SLUG, "version": "3.4.4", "time": utc_now()}
 
 
 @app.get("/debug/volume")
@@ -1541,6 +1584,8 @@ def get_turn_contract(session_id: str, req: TurnContractRequest) -> dict[str, An
             "Use character_memory_slice, relationship_slice and knowledge_slice before NPC reactions.",
             "Do not continue from chat memory if Action/contract fails.",
             "After meaningful scene, call applyTurnResultSimple and save important memory only.",
+            "Scene Quality Gate: no intermediate loading messages, no empty header, real pressure required.",
+            "Scene Quality Gate: no fast stub, no empty header, no technical preface, real pressure required.",
         ],
     }
 
@@ -1693,7 +1738,7 @@ def openapi_actions() -> dict[str, Any]:
     server = PUBLIC_BASE_URL or "https://your-service.up.railway.app"
     return {
         "openapi": "3.1.0",
-        "info": {"title": f"{PROJECT_SLUG} GPT Actions", "version": "3.4.3"},
+        "info": {"title": f"{PROJECT_SLUG} GPT Actions", "version": "3.4.4"},
         "servers": [{"url": server}],
         "paths": {
             "/health": {
