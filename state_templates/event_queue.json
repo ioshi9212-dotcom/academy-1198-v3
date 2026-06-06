@@ -50,7 +50,7 @@
     },
     "event_start_kir_late_disruption": {
       "type": "delayed_character_entry",
-      "status": "pending",
+      "status": "locked",
       "priority": 4,
       "date": "1198-08-15",
       "location_id": "loc_academy_main",
@@ -60,10 +60,12 @@
         "char_livia"
       ],
       "trigger_after": "after first entry pressure is visible",
+      "requires_story_flag": "first_entry_pressure_shown",
+      "unlock_rule": "Unlock to ready only after a scene has shown first Academy entry pressure through crowd/system/staff/social attention.",
       "event_goal": "Ввести Кира как живую задержавшуюся проблему, а не карточку персонажа.",
       "scene_pressure": "Кир появляется чуть позже, сбивая ритм потока, чужое внимание или работу сотрудника.",
       "use_as": "Не в первой строке сцены; как второй крючок после первичного давления.",
-      "do_not": "Не делать из входа Кира главную презентацию сцены."
+      "do_not": "Не делать из входа Кира главную презентацию сцены и не вводить его до первого давления входа."
     }
   }
 }
