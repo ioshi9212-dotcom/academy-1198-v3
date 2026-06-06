@@ -1,0 +1,241 @@
+diff --git a/app/main.py b/app/main.py
+--- a/app/main.py
++++ b/app/main.py
+@@
+ CORE_REQUIRED_FILES = [
++    "MANCHESS_RULES.md",
++    "engine/turn_contract.md",
++    "engine/loading_policy.md",
++    "engine/source_priority.md",
++    "engine/current_frame_policy.md",
+     "engine/novel_director_core.md",
+     "engine/output_format.md",
+     "engine/scene_generation_rules.md",
+@@
+     "characters/characters_index.yaml",
+     "world/locations/locations_index.yaml",
++    "world/academy/academy_index.yaml",
+     "knowledge/knowledge_rules.md",
+ ]
+@@
+-def parse_json_text(value: str) -> dict[str, Any]:
+-    if not value:
+-        return {}
+-    try:
+-        parsed = json.loads(value)
+-    except json.JSONDecodeError:
+-        return {}
+-    return parsed if isinstance(parsed, dict) else {}
++ROOT_METADATA_KEYS = {"schema", "session_id", "updated_at", "description"}
++STATE_ITEM_CONTAINER_KEYS = {
++    "relationships.json": "relationships",
++    "open_threads.json": "threads",
++    "shared_incidents.json": "incidents",
++    "event_seeds.json": "items",
++    "event_queue.json": "items",
++    "gossip_state.json": "items",
++    "energy_incidents.json": "items",
++}
++
++
++def parse_json_text(value: str, field_name: str = "json") -> dict[str, Any]:
++    if value is None or not str(value).strip():
++        return {}
++    try:
++        parsed = json.loads(value)
++    except json.JSONDecodeError as exc:
++        raise HTTPException(
++            status_code=400,
++            detail=f"Invalid JSON in {field_name}: {exc.msg} at line {exc.lineno}, column {exc.colno}",
++        ) from exc
++    if not isinstance(parsed, dict):
++        raise HTTPException(status_code=400, detail=f"Invalid JSON in {field_name}: expected JSON object")
++    return parsed
+@@
+ def read_json_state(session_id: str, filename: str) -> dict[str, Any]:
+     value = read_state(session_id, filename)
+     return value if isinstance(value, dict) else {}
+ 
+ 
++def state_container_items(state: dict[str, Any], container_key: str) -> dict[str, Any]:
++    """Return focused runtime items from both the new container format and legacy top-level format."""
++    result: dict[str, Any] = {}
++    nested = state.get(container_key)
++    if isinstance(nested, dict):
++        result.update(nested)
++
++    for key, value in state.items():
++        if key == container_key or key in ROOT_METADATA_KEYS:
++            continue
++        if isinstance(value, dict):
++            result.setdefault(key, value)
++    return result
++
++
++def normalize_container_patch(patch: dict[str, Any], container_key: str) -> dict[str, Any]:
++    if not patch:
++        return {}
++
++    normalized: dict[str, Any] = {
++        key: value for key, value in patch.items() if key in ROOT_METADATA_KEYS
++    }
++    items: dict[str, Any] = {}
++
++    nested = patch.get(container_key)
++    if isinstance(nested, dict):
++        items.update(nested)
++
++    for key, value in patch.items():
++        if key == container_key or key in ROOT_METADATA_KEYS:
++            continue
++        items[key] = value
++
++    if items:
++        normalized[container_key] = items
++    return normalized or patch
++
++
++def normalize_knowledge_patch(patch: dict[str, Any]) -> dict[str, Any]:
++    if not patch:
++        return {}
++
++    root_keys = ROOT_METADATA_KEYS | {
++        "public_knowledge",
++        "hidden_truths",
++        "character_knowledge",
++        "evidence_log",
++        "speaker_labels",
++    }
++    normalized: dict[str, Any] = {
++        key: value for key, value in patch.items() if key in root_keys
++    }
++    character_items: dict[str, Any] = {}
++
++    for key, value in patch.items():
++        if key in root_keys:
++            continue
++        if isinstance(key, str) and key.startswith("char_") and isinstance(value, dict):
++            character_items[key] = value
++        else:
++            normalized[key] = value
++
++    if character_items:
++        existing = normalized.get("character_knowledge", {})
++        if not isinstance(existing, dict):
++            existing = {}
++        deep_merge(existing, character_items)
++        normalized["character_knowledge"] = existing
++
++    return normalized or patch
++
++
++def normalize_state_patch(filename: str, patch: dict[str, Any]) -> dict[str, Any]:
++    if filename == "knowledge_state.json":
++        return normalize_knowledge_patch(patch)
++    container_key = STATE_ITEM_CONTAINER_KEYS.get(filename)
++    if container_key:
++        return normalize_container_patch(patch, container_key)
++    return patch
++
++
+ def write_json_state(session_id: str, filename: str, patch: dict[str, Any]) -> None:
+     current = read_json_state(session_id, filename)
+-    deep_merge(current, patch)
++    normalized_patch = normalize_state_patch(filename, patch)
++    deep_merge(current, normalized_patch)
+     current["updated_at"] = utc_now()
+     write_state(session_id, filename, current)
+@@
+ def build_relationship_slice(session_id: str, scene_ids: list[str]) -> dict[str, Any]:
+-    relationships = read_json_state(session_id, "relationships.json")
++    relationships_state = read_json_state(session_id, "relationships.json")
++    relationships = state_container_items(relationships_state, "relationships")
+     result: dict[str, Any] = {}
+@@
+ def build_knowledge_slice(session_id: str, scene_ids: list[str]) -> dict[str, Any]:
+     knowledge = read_json_state(session_id, "knowledge_state.json")
+-    return {cid: knowledge.get(cid, {}) for cid in scene_ids if cid in knowledge}
++    character_knowledge = knowledge.get("character_knowledge", {})
++    if not isinstance(character_knowledge, dict):
++        character_knowledge = {}
++
++    result: dict[str, Any] = {
++        cid: character_knowledge.get(cid, {})
++        for cid in scene_ids
++        if isinstance(character_knowledge.get(cid, {}), dict)
++    }
++
++    speaker_labels = knowledge.get("speaker_labels", {})
++    if isinstance(speaker_labels, dict):
++        focused_labels = {cid: speaker_labels[cid] for cid in scene_ids if cid in speaker_labels}
++        if focused_labels:
++            result["_speaker_labels"] = focused_labels
++
++    return result
+@@
+ def build_open_threads_slice(session_id: str, scene_ids: list[str]) -> dict[str, Any]:
+-    open_threads = read_json_state(session_id, "open_threads.json")
++    open_threads_state = read_json_state(session_id, "open_threads.json")
++    open_threads = state_container_items(open_threads_state, "threads")
+@@
+ def build_shared_incidents_slice(session_id: str, scene_ids: list[str]) -> dict[str, Any]:
+-    incidents = read_json_state(session_id, "shared_incidents.json")
++    incidents_state = read_json_state(session_id, "shared_incidents.json")
++    incidents = state_container_items(incidents_state, "incidents")
+@@
+     event_queue = read_json_state(session_id, "event_queue.json")
+@@
+     energy_incidents = read_json_state(session_id, "energy_incidents.json")
++
++    event_seeds_items = state_container_items(event_seeds, "items")
++    event_queue_items = state_container_items(event_queue, "items")
++    gossip_items = state_container_items(gossip_state, "items")
++    energy_incident_items = state_container_items(energy_incidents, "items")
++    rating_items = state_container_items(rating_state, "items")
+ 
+     rating_slice = {
+-        cid: rating_state.get(cid, {})
++        cid: rating_items.get(cid, {})
+         for cid in scene_ids
+-        if isinstance(rating_state.get(cid, {}), dict)
++        if isinstance(rating_items.get(cid, {}), dict)
+     }
+@@
+-            event_seeds,
++            event_seeds_items,
+@@
+-            event_queue,
++            event_queue_items,
+@@
+-            gossip_state,
++            gossip_items,
+@@
+-            energy_incidents,
++            energy_incident_items,
+@@
+-            current_state_changes=parse_json_text(req.current_state_changes_json),
+-            knowledge_changes=parse_json_text(req.knowledge_changes_json),
+-            relationship_changes=parse_json_text(req.relationship_changes_json),
+-            open_thread_changes=parse_json_text(req.open_thread_changes_json),
+-            shared_incident_changes=parse_json_text(req.shared_incident_changes_json),
+-            inventory_changes=parse_json_text(req.inventory_changes_json),
+-            character_memory_changes=parse_json_text(req.character_memory_changes_json),
+-            event_seed_changes=parse_json_text(req.event_seed_changes_json),
+-            event_queue_changes=parse_json_text(req.event_queue_changes_json),
+-            director_note_changes=parse_json_text(req.director_note_changes_json),
+-            gossip_changes=parse_json_text(req.gossip_changes_json),
+-            rating_changes=parse_json_text(req.rating_changes_json),
+-            energy_incident_changes=parse_json_text(req.energy_incident_changes_json),
++            current_state_changes=parse_json_text(req.current_state_changes_json, "current_state_changes_json"),
++            knowledge_changes=parse_json_text(req.knowledge_changes_json, "knowledge_changes_json"),
++            relationship_changes=parse_json_text(req.relationship_changes_json, "relationship_changes_json"),
++            open_thread_changes=parse_json_text(req.open_thread_changes_json, "open_thread_changes_json"),
++            shared_incident_changes=parse_json_text(req.shared_incident_changes_json, "shared_incident_changes_json"),
++            inventory_changes=parse_json_text(req.inventory_changes_json, "inventory_changes_json"),
++            character_memory_changes=parse_json_text(req.character_memory_changes_json, "character_memory_changes_json"),
++            event_seed_changes=parse_json_text(req.event_seed_changes_json, "event_seed_changes_json"),
++            event_queue_changes=parse_json_text(req.event_queue_changes_json, "event_queue_changes_json"),
++            director_note_changes=parse_json_text(req.director_note_changes_json, "director_note_changes_json"),
++            gossip_changes=parse_json_text(req.gossip_changes_json, "gossip_changes_json"),
++            rating_changes=parse_json_text(req.rating_changes_json, "rating_changes_json"),
++            energy_incident_changes=parse_json_text(req.energy_incident_changes_json, "energy_incident_changes_json"),

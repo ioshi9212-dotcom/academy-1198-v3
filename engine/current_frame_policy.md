@@ -16,15 +16,19 @@ The active runtime frame is Academy 1198:
 
 ## Source priority
 
-Use sources in this order:
+Use `engine/source_priority.md` as the only source-priority law.
 
-1. current `academy-1198-v3` files;
-2. current runtime session state;
-3. old `academy-1198` canon, adapted to v3 structure;
-4. `akira-academy-prequel` for scene rules, roster rotation and academic social ecosystem;
-5. direct user instruction.
+Short form:
 
-If sources disagree, current repository and current user instruction win.
+1. latest explicit user correction;
+2. runtime session state;
+3. recent turns / scene history / compacted memory;
+4. current `academy-1198-v3` files;
+5. current calendar / arc / active loaded character files;
+6. focused knowledge, memory, relationships and incidents;
+7. old canon and prequel as reference only.
+
+Direct current user correction beats stale repo text. Runtime state beats old canon.
 
 ## Calendar
 
@@ -62,3 +66,8 @@ Academy scenes should feel like a living institution:
 - consequences.
 
 The Academy is not a cozy school, not a prison, and not a static registration desk.
+
+## Scene frame use
+
+For a normal play turn, use `scene_contract.current_frame` first.
+Do not replace the frame with old memory or with general project lore.

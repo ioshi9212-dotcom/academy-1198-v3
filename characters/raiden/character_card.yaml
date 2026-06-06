@@ -2,10 +2,10 @@
 
 id: "char_raiden"
 display_name: "Райден"
-true_name: "Райден"
+true_name: "Райден Стэрлинг"
 
 labels:
-  unknown_to_akira: "высокий тёмноволосый парень"
+  unknown_to_akira: "высокий светловолосый парень"
   known_to_akira: "Райден"
   narrator_default: "Райден"
   speaker_label_before_reveal: "Парень"
@@ -14,20 +14,22 @@ labels:
 aliases:
   - "райден"
   - "raiden"
+  - "райден стэрлинг"
+  - "raiden sterling"
 reserved_aliases:
   - "рей"
   - "рэй"
 
-gender: ""
-age: null
-height: null
+gender: "male"
+age: 26
+height: 195
 
 role:
-  public_role: ""
-  hidden_role: ""
-  current_status: ""
-  faction_id: null
-  location_anchor: null
+  public_role: "командирский контур / старший рейдерский состав при Академии"
+  hidden_role: "носитель холодной воздушной энергии с закрытыми семейными связями"
+  current_status: "социальная орбита Академии; не первый фокус стартовой сцены"
+  faction_id: "academy_raider_command"
+  location_anchor: "loc_academy_main"
 
 files:
   profile: "profile.md"
@@ -45,12 +47,13 @@ scene_usage:
   can_appear_without_calendar_reason: false
   requires_location_match: true
   requires_story_reason: true
-  can_be_background: false
+  can_be_background: true
   can_speak_without_card_loaded: false
+  first_day_rule: "May be noticed only after Akira/Livia entry pressure is established. Do not steal the first frame."
 
 pov_access:
-  akira_can_notice: ["appearance", "voice", "movement", "facial_expression", "visible_reaction"]
-  akira_cannot_know: ["inner_thoughts", "hidden_motives", "unspoken_past", "secret_files"]
+  akira_can_notice: ["appearance", "voice", "movement", "facial_expression", "visible_reaction", "temperature_shift"]
+  akira_cannot_know: ["inner_thoughts", "hidden_motives", "unspoken_past", "secret_files", "family secrets"]
 
 loading_rules:
   always_load_with_character: ["appearance", "behavior", "voice", "knowledge", "links"]
@@ -58,6 +61,8 @@ loading_rules:
 
 forbidden:
   - "Do not change fixed appearance without user/canon update."
+  - "Do not make his hair black."
   - "Do not give this character knowledge without a source."
   - "Do not use hidden_role as public knowledge."
   - "Do not confuse Raiden with Ray/Rey/Irey aliases."
+  - "Do not make him warm, chatty, openly sentimental or theatrically jealous."

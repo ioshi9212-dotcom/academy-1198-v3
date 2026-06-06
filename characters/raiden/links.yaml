@@ -1,25 +1,37 @@
 character_id: "char_raiden"
+
 relationships:
   pair_ids: []
-  required_when_together: []
+  required_when_together:
+    - "state/relationships.json"
   required_when_mentioned: []
+
 shared_incidents:
   witnessed: []
   participated: []
   heard_about: []
   private_reaction_refs: []
+
 canon_files:
-  public: []
-  hidden: []
+  public:
+    - "characters/raiden/character_card.yaml"
+    - "characters/raiden/appearance.md"
+    - "characters/raiden/behavior.md"
+    - "characters/raiden/voice.md"
+  hidden:
+    - "characters/raiden/past.md"
   relationship_lore: []
   location_lore: []
-  energy_lore: []
+  energy_lore:
+    - "characters/raiden/energy.yaml"
+
 runtime_refs:
   character_memory: "state/character_memory/char_raiden.json"
   focused_relationships: "state/relationships.json"
   open_threads: "state/open_threads.json"
   shared_incidents: "state/shared_incidents.json"
+
 loading_hints:
   load_past_if: ["scene asks about past", "shared incident references past", "character is confronted with known trigger"]
-  load_energy_if: ["training", "combat", "energy check", "ability is mentioned"]
+  load_energy_if: ["training", "combat", "energy check", "temperature drop", "ability is mentioned"]
   load_habits_if: ["close interaction", "romantic or hostile tension", "body language matters"]

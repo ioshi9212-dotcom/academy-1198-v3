@@ -2,67 +2,68 @@
   "updated_at": "{{CREATED_AT}}",
   "schema": "event_queue_v1",
   "description": "Pending or ready event beats that can enter scenes when matching date/location/characters.",
-  "items": {},
-  "event_start_white_hair_attention": {
-    "type": "gossip_social_attention",
-    "status": "ready",
-    "priority": 5,
-    "date": "1198-08-15",
-    "location_id": "loc_academy_main",
-    "characters": [
-      "char_akira",
-      "char_livia"
-    ],
-    "event_goal": "Сделать вход Акиры заметным для социальной среды Академии без прямого объяснения лора.",
-    "scene_pressure": "Несколько новичков и сотрудник замечают слишком белые волосы и слишком спокойную реакцию Акиры на контроль.",
-    "use_as": "Фоновое внимание, взгляды, короткий шёпот, первый рост peer_attention.",
-    "do_not": "Не превращать в справку о внешности и не раскрывать скрытый лор."
-  },
-  "event_start_minor_bracelet_flicker": {
-    "type": "energy_flare_minor",
-    "status": "ready",
-    "priority": 4,
-    "date": "1198-08-15",
-    "location_id": "loc_academy_main",
-    "characters": [
-      "char_akira",
-      "char_livia"
-    ],
-    "event_goal": "Показать, что Академия реагирует на энергию и сбои через действие, а не лекцию.",
-    "scene_pressure": "У одного из новичков рядом на секунду мигает браслет или метка сверки; сотрудники меняют тон и поток начинает нервничать.",
-    "use_as": "Маленькая энергетическая тревога на фоне, которую Акира может заметить и оценить.",
-    "do_not": "Не делать большой взрыв и не назначать виновной Акиру без причины."
-  },
-  "event_start_livia_social_mask": {
-    "type": "character_social_pressure",
-    "status": "ready",
-    "priority": 5,
-    "date": "1198-08-15",
-    "location_id": "loc_academy_main",
-    "characters": [
-      "char_livia",
-      "char_akira"
-    ],
-    "event_goal": "Показать Ливию живой социальной силой, а не справочником регистрации.",
-    "scene_pressure": "Ливия реагирует на взгляды слишком громко, шутит или флиртует с ситуацией, но по паузе видно, что она тоже оценивает поле.",
-    "use_as": "Реплика, движение, попытка перетянуть внимание или прикрыть неловкость шумом.",
-    "do_not": "Не делать Ливию гидом, объясняющим правила игроку."
-  },
-  "event_start_kir_late_disruption": {
-    "type": "delayed_character_entry",
-    "status": "pending",
-    "priority": 4,
-    "date": "1198-08-15",
-    "location_id": "loc_academy_main",
-    "characters": [
-      "char_kir",
-      "char_akira",
-      "char_livia"
-    ],
-    "trigger_after": "after first entry pressure is visible",
-    "event_goal": "Ввести Кира как живую задержавшуюся проблему, а не карточку персонажа.",
-    "scene_pressure": "Кир появляется чуть позже, сбивая ритм потока, чужое внимание или работу сотрудника.",
-    "use_as": "Не в первой строке сцены; как второй крючок после первичного давления.",
-    "do_not": "Не делать из входа Кира главную презентацию сцены."
+  "items": {
+    "event_start_white_hair_attention": {
+      "type": "gossip_social_attention",
+      "status": "ready",
+      "priority": 5,
+      "date": "1198-08-15",
+      "location_id": "loc_academy_main",
+      "characters": [
+        "char_akira",
+        "char_livia"
+      ],
+      "event_goal": "Сделать вход Акиры заметным для социальной среды Академии без прямого объяснения лора.",
+      "scene_pressure": "Несколько новичков и сотрудник замечают слишком белые волосы и слишком спокойную реакцию Акиры на контроль.",
+      "use_as": "Фоновое внимание, взгляды, короткий шёпот, первый рост peer_attention.",
+      "do_not": "Не превращать в справку о внешности и не раскрывать скрытый лор."
+    },
+    "event_start_minor_bracelet_flicker": {
+      "type": "energy_flare_minor",
+      "status": "ready",
+      "priority": 4,
+      "date": "1198-08-15",
+      "location_id": "loc_academy_main",
+      "characters": [
+        "char_akira",
+        "char_livia"
+      ],
+      "event_goal": "Показать, что Академия реагирует на энергию и сбои через действие, а не лекцию.",
+      "scene_pressure": "У одного из новичков рядом на секунду мигает браслет или метка сверки; сотрудники меняют тон и поток начинает нервничать.",
+      "use_as": "Маленькая энергетическая тревога на фоне, которую Акира может заметить и оценить.",
+      "do_not": "Не делать большой взрыв и не назначать виновной Акиру без причины."
+    },
+    "event_start_livia_social_mask": {
+      "type": "character_social_pressure",
+      "status": "ready",
+      "priority": 5,
+      "date": "1198-08-15",
+      "location_id": "loc_academy_main",
+      "characters": [
+        "char_livia",
+        "char_akira"
+      ],
+      "event_goal": "Показать Ливию живой социальной силой, а не справочником регистрации.",
+      "scene_pressure": "Ливия реагирует на взгляды слишком громко, шутит или флиртует с ситуацией, но по паузе видно, что она тоже оценивает поле.",
+      "use_as": "Реплика, движение, попытка перетянуть внимание или прикрыть неловкость шумом.",
+      "do_not": "Не делать Ливию гидом, объясняющим правила игроку."
+    },
+    "event_start_kir_late_disruption": {
+      "type": "delayed_character_entry",
+      "status": "pending",
+      "priority": 4,
+      "date": "1198-08-15",
+      "location_id": "loc_academy_main",
+      "characters": [
+        "char_kir",
+        "char_akira",
+        "char_livia"
+      ],
+      "trigger_after": "after first entry pressure is visible",
+      "event_goal": "Ввести Кира как живую задержавшуюся проблему, а не карточку персонажа.",
+      "scene_pressure": "Кир появляется чуть позже, сбивая ритм потока, чужое внимание или работу сотрудника.",
+      "use_as": "Не в первой строке сцены; как второй крючок после первичного давления.",
+      "do_not": "Не делать из входа Кира главную презентацию сцены."
+    }
   }
 }
