@@ -33,7 +33,37 @@ MAX_FILE_CHARS = int(os.getenv("MAX_FILE_CHARS", "18000"))
 MAX_SCENE_SLICE_CHARS = int(os.getenv("MAX_SCENE_SLICE_CHARS", "2200"))
 RUNTIME_SUMMARY_CHARS = int(os.getenv("RUNTIME_SUMMARY_CHARS", "1600"))
 
-app = FastAPI(title=f"{PROJECT_SLUG} GPT Actions API", version="3.4.0")
+app = FastAPI(title=f"{PROJECT_SLUG} GPT Actions API", version="3.4.2")
+
+RESERVED_SESSION_IDS = {"default", "new", "none", "null", "undefined", "session"}
+
+
+def is_reserved_session_id(session_id: str | None) -> bool:
+    if not isinstance(session_id, str):
+        return False
+    return session_id.strip().lower() in RESERVED_SESSION_IDS
+
+
+def normalize_session_id_for_create(session_id: str | None) -> str | None:
+    """CreateSession must generate a fresh random id when GPT sends unsafe placeholders."""
+    if session_id is None:
+        return None
+    cleaned = session_id.strip()
+    if not cleaned or is_reserved_session_id(cleaned):
+        return None
+    return cleaned
+
+
+def reject_reserved_session_id(session_id: str) -> None:
+    if is_reserved_session_id(session_id):
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Reserved session_id is not allowed for gameplay. "
+                "Call createSession without session_id and use the returned random session_id."
+            ),
+        )
+
 
 
 class CreateSessionRequest(BaseModel):
@@ -68,6 +98,7 @@ class ApplyTurnResultRequest(BaseModel):
 
 
 class ApplyTurnResultSimpleRequest(BaseModel):
+    text: str | None = None  # Tolerates GPT Actions sending the whole payload as a JSON string.
     scene_id: str = "scene"
     scene_text: str = ""
     technical: bool = False
@@ -342,6 +373,88 @@ def parse_json_text(value: str, field_name: str) -> dict[str, Any]:
             },
         )
     return parsed
+
+
+
+def parse_json_string_payload(value: str, field_name: str) -> dict[str, Any]:
+    """Parse a JSON object that GPT Actions may send as a single string field."""
+    raw: Any = value
+    for _ in range(3):
+        if not isinstance(raw, str):
+            break
+        candidate = raw.strip()
+        if not candidate:
+            return {}
+        try:
+            raw = json.loads(candidate)
+        except json.JSONDecodeError as exc:
+            raise HTTPException(
+                status_code=400,
+                detail={
+                    "error": "invalid_json_string_payload",
+                    "field": field_name,
+                    "message": str(exc),
+                    "hint": "Send fields directly, or send text as a valid JSON object string.",
+                },
+            ) from exc
+    if not isinstance(raw, dict):
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "error": "invalid_json_string_payload_type",
+                "field": field_name,
+                "message": "Payload string must decode to an object/dict.",
+            },
+        )
+    return raw
+
+
+def normalize_apply_turn_result_simple_request(req: ApplyTurnResultSimpleRequest) -> ApplyTurnResultSimpleRequest:
+    """Accept both the normal schema and the common GPT mistake: {"text": "{...json...}"}."""
+    data = req.model_dump()
+
+    if data.get("text"):
+        parsed = parse_json_string_payload(str(data["text"]), "text")
+        # Never allow a body session_id to override the path session_id.
+        parsed.pop("session_id", None)
+        for key, value in parsed.items():
+            if key in data:
+                data[key] = value
+
+    data["text"] = None
+
+    json_fields = [
+        "current_state_changes_json",
+        "knowledge_changes_json",
+        "relationship_changes_json",
+        "open_thread_changes_json",
+        "shared_incident_changes_json",
+        "inventory_changes_json",
+        "character_memory_changes_json",
+        "event_seed_changes_json",
+        "event_queue_changes_json",
+        "director_note_changes_json",
+        "gossip_changes_json",
+        "rating_changes_json",
+        "energy_incident_changes_json",
+    ]
+
+    for field in json_fields:
+        value = data.get(field)
+        if value is None or value == "":
+            data[field] = "{}"
+        elif isinstance(value, (dict, list)):
+            # The simple endpoint stores JSON text fields, but GPT sometimes sends objects.
+            data[field] = json.dumps(value if isinstance(value, dict) else {"items": value}, ensure_ascii=False)
+        elif not isinstance(value, str):
+            data[field] = json.dumps(value, ensure_ascii=False)
+
+    if not isinstance(data.get("scene_text"), str):
+        data["scene_text"] = json.dumps(data.get("scene_text"), ensure_ascii=False)
+    if not isinstance(data.get("scene_id"), str):
+        data["scene_id"] = str(data.get("scene_id") or "scene")
+
+    return ApplyTurnResultSimpleRequest(**data)
 
 
 def read_json_state(session_id: str, filename: str) -> dict[str, Any]:
@@ -1231,7 +1344,7 @@ def root() -> dict[str, Any]:
     return {
         "status": "ok",
         "project": PROJECT_SLUG,
-        "version": "3.4.0",
+        "version": "3.4.2",
         "actions_schema": "/openapi-actions.json",
         "health": "/health",
         "debug_volume": "/debug/volume",
@@ -1240,7 +1353,7 @@ def root() -> dict[str, Any]:
 
 @app.get("/health")
 def health() -> dict[str, Any]:
-    return {"success": True, "project": PROJECT_SLUG, "version": "3.4.0", "time": utc_now()}
+    return {"success": True, "project": PROJECT_SLUG, "version": "3.4.2", "time": utc_now()}
 
 
 @app.get("/debug/volume")
@@ -1254,19 +1367,24 @@ def debug_volume() -> dict[str, Any]:
 @app.post("/api/v1/sessions")
 def create_session(req: CreateSessionRequest | None = None) -> dict[str, Any]:
     req = req or CreateSessionRequest()
-    sid, root_dir = ensure_session(req.session_id, reset=req.reset)
+    requested_session_id = req.session_id
+    normalized_session_id = normalize_session_id_for_create(requested_session_id)
+    sid, root_dir = ensure_session(normalized_session_id, reset=req.reset)
     return {
         "success": True,
         "session_id": sid,
         "session_root": str(root_dir),
         "state_root": str(session_state_root(sid)),
         "reset": req.reset,
+        "requested_session_id": requested_session_id,
+        "reserved_session_id_replaced": normalized_session_id is None and requested_session_id is not None,
         "next": {"turn_contract": f"/api/v1/sessions/{sid}/turn-contract"},
     }
 
 
 @app.post("/api/v1/sessions/{session_id}/turn-contract")
 def get_turn_contract(session_id: str, req: TurnContractRequest) -> dict[str, Any]:
+    reject_reserved_session_id(session_id)
     sid, _ = ensure_session(session_id, reset=False)
     current_state = read_json_state(sid, "current_state.json")
     required_files = build_required_files(current_state, req.mode)
@@ -1309,6 +1427,7 @@ def get_turn_contract(session_id: str, req: TurnContractRequest) -> dict[str, An
 
 @app.post("/api/v1/sessions/{session_id}/apply-turn-result")
 def apply_turn_result(session_id: str, req: ApplyTurnResultRequest) -> dict[str, Any]:
+    reject_reserved_session_id(session_id)
     sid, _ = ensure_session(session_id, reset=False)
     state_root = session_state_root(sid)
 
@@ -1378,6 +1497,7 @@ def apply_turn_result(session_id: str, req: ApplyTurnResultRequest) -> dict[str,
 
 @app.post("/api/v1/sessions/{session_id}/apply-turn-result-simple")
 def apply_turn_result_simple(session_id: str, req: ApplyTurnResultSimpleRequest) -> dict[str, Any]:
+    req = normalize_apply_turn_result_simple_request(req)
     return apply_turn_result(
         session_id,
         ApplyTurnResultRequest(
@@ -1403,6 +1523,7 @@ def apply_turn_result_simple(session_id: str, req: ApplyTurnResultSimpleRequest)
 
 @app.post("/api/v1/sessions/{session_id}/compact")
 def compact_session(session_id: str, req: CompactRequest) -> dict[str, Any]:
+    reject_reserved_session_id(session_id)
     sid, _ = ensure_session(session_id, reset=False)
     if req.recent_turns_md is not None:
         write_state(sid, "recent_turns.md", req.recent_turns_md)
@@ -1420,6 +1541,7 @@ def compact_session(session_id: str, req: CompactRequest) -> dict[str, Any]:
 
 @app.get("/api/v1/sessions/{session_id}/state/{filename}")
 def read_session_state_file(session_id: str, filename: str) -> PlainTextResponse:
+    reject_reserved_session_id(session_id)
     try:
         safe_filename = safe_repo_path(filename)
         text = read_project_or_runtime_file(f"state/{safe_filename}", session_id)
@@ -1451,7 +1573,7 @@ def openapi_actions() -> dict[str, Any]:
     server = PUBLIC_BASE_URL or "https://your-service.up.railway.app"
     return {
         "openapi": "3.1.0",
-        "info": {"title": f"{PROJECT_SLUG} GPT Actions", "version": "3.4.0"},
+        "info": {"title": f"{PROJECT_SLUG} GPT Actions", "version": "3.4.2"},
         "servers": [{"url": server}],
         "paths": {
             "/health": {
