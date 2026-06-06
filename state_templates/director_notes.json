@@ -8,14 +8,17 @@
       "next_scene_intent": "Показывать правила через людей, давление, внимание и мелкие события, а не через сухую регистрацию.",
       "active_seeds": [
         "seed_white_hair_first_attention",
-        "seed_livia_not_a_guide",
-        "seed_kir_late_entry"
+        "seed_livia_not_a_guide"
       ],
+      "locked_until_flag": {
+        "seed_kir_late_entry": "first_entry_pressure_shown"
+      },
       "must_not_do": [
         "не превращать сцену в инструкцию регистрации",
         "не делать active NPC справочниками",
         "не писать Ливию как новую спутницу",
         "не писать Акиру как нейтральную RPG-куклу",
+        "не вводить Кира до первого давления входа",
         "не раскрывать скрытый лор напрямую"
       ],
       "status": "active"

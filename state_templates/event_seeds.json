@@ -42,7 +42,7 @@
     },
     "seed_kir_late_entry": {
       "type": "delayed_character_entry",
-      "status": "maturing",
+      "status": "locked",
       "priority": 4,
       "date": "1198-08-15",
       "location_id": "loc_academy_main",
@@ -58,7 +58,9 @@
         "сотрудник замечает опоздание и реагирует сухо",
         "Ливия реагирует первой, но не объясняет его игроку как справочник"
       ],
-      "can_trigger_after": "after first entry pressure"
+      "can_trigger_after": "after first entry pressure",
+      "requires_story_flag": "first_entry_pressure_shown",
+      "unlock_rule": "Unlock to maturing only after first Academy entry pressure is shown and saved."
     }
   }
 }
