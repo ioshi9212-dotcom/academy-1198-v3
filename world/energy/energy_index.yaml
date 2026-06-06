@@ -1,4 +1,6 @@
-schema: energy_index_v1
+schema: energy_index_v2
 general_rules: "world/energy/general_energy_rules.md"
 classes_and_levels: "world/energy/classes_and_levels.md"
 restrictions: "world/energy/restrictions.md"
+runtime_atmosphere: "runtime/academy/energy_atmosphere.yaml"
+scene_rules: "engine/energy_atmosphere_rules.md"
