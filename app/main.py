@@ -33,7 +33,7 @@ MAX_FILE_CHARS = int(os.getenv("MAX_FILE_CHARS", "18000"))
 MAX_SCENE_SLICE_CHARS = int(os.getenv("MAX_SCENE_SLICE_CHARS", "2200"))
 RUNTIME_SUMMARY_CHARS = int(os.getenv("RUNTIME_SUMMARY_CHARS", "1600"))
 
-app = FastAPI(title=f"{PROJECT_SLUG} GPT Actions API", version="3.4.4")
+app = FastAPI(title=f"{PROJECT_SLUG} GPT Actions API", version="3.4.5")
 
 RESERVED_SESSION_IDS = {"default", "new", "none", "null", "undefined", "session"}
 
@@ -140,6 +140,7 @@ CORE_REQUIRED_FILES = [
     "engine/runtime_character_slice_rules.md",
     "engine/scene_assembly_gate.md",
     "engine/scene_quality_gate.md",
+    "engine/energy_atmosphere_rules.md",
     "story/pacing/no_filler_rules.md",
     "state/current_state.json",
     "state/recent_turns.md",
@@ -147,6 +148,8 @@ CORE_REQUIRED_FILES = [
     "runtime/characters/characters_runtime_index.yaml",
     "world/locations/locations_index.yaml",
     "world/academy/academy_index.yaml",
+    "world/energy/energy_index.yaml",
+    "runtime/academy/energy_atmosphere.yaml",
     "knowledge/knowledge_rules.md",
 ]
 
@@ -1344,6 +1347,7 @@ def scene_quality_gate_contract() -> dict[str, Any]:
             "Scene body must be 7-12 short paragraphs/units for normal meaningful play.",
             "At least one active NPC must speak or make a character-specific visible move.",
             "At least one concrete pressure must change or press forward.",
+            "Include at least one small ambient energy carrier detail unless scene location/state forbids it.",
             "If player action is passive, the world still advances: queue moves, staff calls, someone notices, route changes, rumor/attention starts.",
             "Choices must be in Akira's selected variant voice, not polite generic UI.",
             "Thoughts must be Akira's real tactical/poisonous thoughts, not author summary.",
@@ -1441,6 +1445,66 @@ def scene_assembly_gate_contract() -> dict[str, Any]:
     }
 
 
+
+def build_energy_atmosphere_slice(session_id: str, current_state: dict[str, Any], scene_ids: list[str]) -> dict[str, Any]:
+    """Compact academy-energy background layer. Makes Academy feel like a place for energy carriers."""
+    energy_index = safe_read_text("world/energy/energy_index.yaml", session_id, max_chars=600)
+    atmosphere = safe_read_text("runtime/academy/energy_atmosphere.yaml", session_id, max_chars=1700)
+    general = safe_read_text("world/energy/general_energy_rules.md", session_id, max_chars=900)
+    classes = safe_read_text("world/energy/classes_and_levels.md", session_id, max_chars=1300)
+    restrictions = safe_read_text("world/energy/restrictions.md", session_id, max_chars=900)
+
+    active_energy: dict[str, Any] = {}
+    for cid in scene_ids[:6]:
+        folder = character_folder(cid)
+        if not folder:
+            continue
+        energy_text = safe_read_text(f"characters/{folder}/energy.yaml", session_id, max_chars=900)
+        if energy_text:
+            active_energy[cid] = {
+                "source": f"characters/{folder}/energy.yaml",
+                "compact": trim_text(energy_text, 900),
+            }
+
+    current_location = current_state.get("current_location_id")
+    current_time = current_state.get("current_time")
+    energy_incidents = slice_state_items(
+        state_container_items(read_json_state(session_id, "energy_incidents.json"), "items"),
+        current_state,
+        scene_ids,
+        current_location if isinstance(current_location, str) else None,
+        current_state.get("current_date") if isinstance(current_state.get("current_date"), str) else None,
+        statuses={"active", "pending", "recent", "resolved_scene_hook"},
+        max_items=3,
+    )
+
+    return {
+        "priority": "ambient_required",
+        "academy_rule": "Academy scenes must feel populated by young energy carriers, not ordinary students.",
+        "sources": {
+            "index": energy_index,
+            "atmosphere": "runtime/academy/energy_atmosphere.yaml",
+            "general": "world/energy/general_energy_rules.md",
+            "classes": "world/energy/classes_and_levels.md",
+            "restrictions": "world/energy/restrictions.md",
+        },
+        "atmosphere_compact": atmosphere,
+        "general_rules_compact": general,
+        "classes_compact": classes,
+        "restrictions_compact": restrictions,
+        "active_character_energy": active_energy,
+        "energy_incidents": energy_incidents,
+        "use_rules": [
+            "Add 1-2 small energy background details in most Academy scenes.",
+            "Use energy as physical consequence: heat, cold, pressure, light, vibration, smell, sensor reaction, body reaction or environmental change.",
+            "Background energy must not steal the scene from POV/current beat.",
+            "Do not make energy decorative magic or constant explosions.",
+            "Students may show off, leak control under emotion, warm objects, cool air, vibrate surfaces, spark sensors, or get corrected by staff.",
+            "Save meaningful energy slips/incidents through applyTurnResultSimple energy_incident_changes_json.",
+        ],
+    }
+
+
 def build_scene_contract(session_id: str, current_state: dict[str, Any], mode: str) -> dict[str, Any]:
     selected = selected_character_ids(current_state)
     scene_ids = unique(selected["full"])
@@ -1481,6 +1545,7 @@ def build_scene_contract(session_id: str, current_state: dict[str, Any], mode: s
         "open_threads_slice": build_open_threads_slice(session_id, scene_ids),
         "shared_incidents_slice": build_shared_incidents_slice(session_id, scene_ids),
         "event_engine_slice": build_event_engine_slice(session_id, current_state, scene_ids),
+        "energy_atmosphere_slice": build_energy_atmosphere_slice(session_id, current_state, scene_ids),
         "npc_autonomy_contract": npc_autonomy_contract(),
         "memory_write_contract": memory_write_contract(),
         "response_format_contract": response_format_contract(),
@@ -1491,6 +1556,7 @@ def build_scene_contract(session_id: str, current_state: dict[str, Any], mode: s
             "Use relationship_slice and behavior_next before NPC reactions.",
             "Use knowledge_slice before NPC claims.",
             "Use event_engine_slice for pressure.",
+            "Use energy_atmosphere_slice to keep Academy scenes visibly populated by energy carriers.",
             "After scene, save important memory by importance level, not every line.",
         ],
     }
@@ -1506,7 +1572,7 @@ def root() -> dict[str, Any]:
     return {
         "status": "ok",
         "project": PROJECT_SLUG,
-        "version": "3.4.4",
+        "version": "3.4.5",
         "actions_schema": "/openapi-actions.json",
         "health": "/health",
         "debug_volume": "/debug/volume",
@@ -1515,7 +1581,7 @@ def root() -> dict[str, Any]:
 
 @app.get("/health")
 def health() -> dict[str, Any]:
-    return {"success": True, "project": PROJECT_SLUG, "version": "3.4.4", "time": utc_now()}
+    return {"success": True, "project": PROJECT_SLUG, "version": "3.4.5", "time": utc_now()}
 
 
 @app.get("/debug/volume")
@@ -1585,6 +1651,7 @@ def get_turn_contract(session_id: str, req: TurnContractRequest) -> dict[str, An
             "Do not continue from chat memory if Action/contract fails.",
             "After meaningful scene, call applyTurnResultSimple and save important memory only.",
             "Scene Quality Gate: no intermediate loading messages, no empty header, real pressure required.",
+            "Energy atmosphere: Academy is for energy carriers; include small visible energy background detail.",
             "Scene Quality Gate: no fast stub, no empty header, no technical preface, real pressure required.",
         ],
     }
@@ -1738,7 +1805,7 @@ def openapi_actions() -> dict[str, Any]:
     server = PUBLIC_BASE_URL or "https://your-service.up.railway.app"
     return {
         "openapi": "3.1.0",
-        "info": {"title": f"{PROJECT_SLUG} GPT Actions", "version": "3.4.4"},
+        "info": {"title": f"{PROJECT_SLUG} GPT Actions", "version": "3.4.5"},
         "servers": [{"url": server}],
         "paths": {
             "/health": {
