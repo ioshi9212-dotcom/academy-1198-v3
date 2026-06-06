@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 import re
+from pathlib import Path
 from typing import Any, Literal
 
 from fastapi import FastAPI, HTTPException, Query
@@ -31,7 +32,7 @@ COMPACT_EVERY_TURNS = int(os.getenv("COMPACT_EVERY_TURNS", "15"))
 MAX_FILE_CHARS = int(os.getenv("MAX_FILE_CHARS", "18000"))
 MAX_SCENE_SLICE_CHARS = int(os.getenv("MAX_SCENE_SLICE_CHARS", "6000"))
 
-app = FastAPI(title=f"{PROJECT_SLUG} GPT Actions API", version="3.2.2")
+app = FastAPI(title=f"{PROJECT_SLUG} GPT Actions API", version="3.3.0")
 
 
 class CreateSessionRequest(BaseModel):
@@ -56,7 +57,6 @@ class ApplyTurnResultRequest(BaseModel):
     shared_incident_changes: dict[str, Any] = Field(default_factory=dict)
     inventory_changes: dict[str, Any] = Field(default_factory=dict)
     character_memory_changes: dict[str, Any] = Field(default_factory=dict)
-
     event_seed_changes: dict[str, Any] = Field(default_factory=dict)
     event_queue_changes: dict[str, Any] = Field(default_factory=dict)
     director_note_changes: dict[str, Any] = Field(default_factory=dict)
@@ -76,7 +76,6 @@ class ApplyTurnResultSimpleRequest(BaseModel):
     shared_incident_changes_json: str = "{}"
     inventory_changes_json: str = "{}"
     character_memory_changes_json: str = "{}"
-
     event_seed_changes_json: str = "{}"
     event_queue_changes_json: str = "{}"
     director_note_changes_json: str = "{}"
@@ -104,6 +103,8 @@ CORE_REQUIRED_FILES = [
     "engine/event_engine_rules.md",
     "engine/pov_rules.md",
     "engine/memory_update_rules.md",
+    "engine/runtime_memory_importance_rules.md",
+    "engine/npc_autonomy_rules.md",
     "story/pacing/no_filler_rules.md",
     "state/current_state.json",
     "state/recent_turns.md",
@@ -117,6 +118,7 @@ TECHNICAL_EXTRA_FILES = [
     "engine/session_policy.md",
     "engine/npc_knowledge_rules.md",
     "engine/anti_hallucination_rules.md",
+    "engine/memory_schema.md",
     "validation/checklist_before_scene.md",
     "validation/calendar_skip_check.md",
     "validation/npc_knowledge_check.md",
@@ -149,6 +151,7 @@ STATE_METADATA_KEYS = {
     "created_at",
     "description",
     "version",
+    "project",
 }
 
 KNOWLEDGE_TOP_LEVEL_KEYS = {
@@ -158,7 +161,6 @@ KNOWLEDGE_TOP_LEVEL_KEYS = {
     "evidence_log",
     "speaker_labels",
 }
-
 
 CHARACTER_FOLDERS: dict[str, str] = {
     "char_akira": "akira",
@@ -483,6 +485,33 @@ def build_required_files(current_state: dict[str, Any], mode: str) -> list[str]:
     return unique(required_files)
 
 
+def build_character_slice(session_id: str, current_state: dict[str, Any], character_ids: list[str]) -> dict[str, Any]:
+    """Compact but real active-character source pack for normal play turns."""
+    result: dict[str, Any] = {}
+    for character_id in character_ids:
+        folder = character_folder(character_id)
+        if not folder:
+            continue
+        data = {
+            "character_id": character_id,
+            "folder": folder,
+            "character_card": safe_read_text(f"characters/{folder}/character_card.yaml", session_id, max_chars=3500),
+            "appearance": safe_read_text(f"characters/{folder}/appearance.md", session_id, max_chars=2500),
+            "behavior": safe_read_text(f"characters/{folder}/behavior.md", session_id, max_chars=6000),
+            "voice": safe_read_text(f"characters/{folder}/voice.md", session_id, max_chars=4500),
+            "knowledge_file": safe_read_text(f"characters/{folder}/knowledge.yaml", session_id, max_chars=3500),
+            "links": safe_read_text(f"characters/{folder}/links.yaml", session_id, max_chars=2500),
+        }
+        if should_load_goals(current_state, character_id):
+            data["goals"] = safe_read_text(f"characters/{folder}/goals.yaml", session_id, max_chars=3500)
+        if should_load_details(current_state, character_id):
+            data["energy"] = safe_read_text(f"characters/{folder}/energy.yaml", session_id, max_chars=2500)
+            data["habits"] = safe_read_text(f"characters/{folder}/habits.md", session_id, max_chars=2500)
+            data["past"] = safe_read_text(f"characters/{folder}/past.md", session_id, max_chars=3500)
+        result[character_id] = data
+    return result
+
+
 def relationship_participants(key: str, value: Any) -> list[str]:
     if isinstance(value, dict):
         for field in ("characters", "participants", "character_ids"):
@@ -509,7 +538,7 @@ def build_knowledge_slice(session_id: str, scene_ids: list[str]) -> dict[str, An
     if not isinstance(character_knowledge, dict):
         character_knowledge = {}
 
-    result = {
+    result: dict[str, Any] = {
         cid: character_knowledge.get(cid, {})
         for cid in scene_ids
         if isinstance(character_knowledge.get(cid, {}), dict)
@@ -520,6 +549,37 @@ def build_knowledge_slice(session_id: str, scene_ids: list[str]) -> dict[str, An
         focused_labels = {cid: speaker_labels.get(cid) for cid in scene_ids if cid in speaker_labels}
         if focused_labels:
             result["speaker_labels"] = focused_labels
+
+    evidence_log = knowledge.get("evidence_log", [])
+    if isinstance(evidence_log, list):
+        focused_evidence: list[Any] = []
+        for item in evidence_log:
+            if not isinstance(item, dict):
+                continue
+            chars = unique(
+                as_id_list(item.get("characters"))
+                + as_id_list(item.get("participants"))
+                + as_id_list(item.get("known_by"))
+                + as_id_list(item.get("witnesses"))
+            )
+            if chars and any(cid in scene_ids for cid in chars):
+                focused_evidence.append(item)
+            if len(focused_evidence) >= 8:
+                break
+        if focused_evidence:
+            result["focused_evidence_log"] = focused_evidence
+    return result
+
+
+def build_character_memory_slice(session_id: str, scene_ids: list[str]) -> dict[str, Any]:
+    """Read personal runtime memory for current active/nearby characters."""
+    result: dict[str, Any] = {}
+    root = session_state_root(session_id) / "character_memory"
+    for character_id in scene_ids:
+        path = root / f"{character_id}.json"
+        current = read_json(path, {})
+        if isinstance(current, dict) and current:
+            result[character_id] = current
     return result
 
 
@@ -574,14 +634,10 @@ def item_related_to_scene(value: Any, scene_ids: list[str], location_id: str | N
         + as_id_list(value.get("characters_required"))
         + as_id_list(value.get("characters_optional"))
     )
-
     if chars and any(cid in scene_ids for cid in chars):
         return True
 
-    locs = unique(
-        as_id_list(value.get("location_ids"))
-        + as_id_list(value.get("location_tags"))
-    )
+    locs = unique(as_id_list(value.get("location_ids")) + as_id_list(value.get("location_tags")))
     loc_single = value.get("location_id")
     if isinstance(loc_single, str):
         locs.append(loc_single)
@@ -596,12 +652,24 @@ def item_related_to_scene(value: Any, scene_ids: list[str], location_id: str | N
             raw_date = raw.get("date")
             if isinstance(raw_date, str) and raw_date == date_value:
                 return True
-
     return False
+
+
+def item_unlocked_by_flags(value: Any, current_state: dict[str, Any]) -> bool:
+    if not isinstance(value, dict):
+        return False
+    story_flags = current_state.get("story_flags", {})
+    if not isinstance(story_flags, dict):
+        story_flags = {}
+    required_flag = value.get("requires_story_flag")
+    if isinstance(required_flag, str) and required_flag and not story_flags.get(required_flag):
+        return False
+    return True
 
 
 def slice_state_items(
     state: dict[str, Any],
+    current_state: dict[str, Any],
     scene_ids: list[str],
     location_id: str | None,
     date_value: str | None,
@@ -610,34 +678,28 @@ def slice_state_items(
     max_items: int = 12,
 ) -> dict[str, Any]:
     result: dict[str, Any] = {}
-
     for key, value in state.items():
         if not isinstance(value, dict):
             continue
-
         if statuses is not None:
             status = str(value.get("status", "active"))
             if status not in statuses:
                 continue
-
-        if item_related_to_scene(value, scene_ids, location_id, date_value):
+        if not item_unlocked_by_flags(value, current_state):
+            continue
+        related = item_related_to_scene(value, scene_ids, location_id, date_value)
+        priority = value.get("priority", 0)
+        is_priority = isinstance(priority, int | float) and priority >= 4
+        if related or (len(result) < 3 and is_priority):
             result[key] = value
-        elif len(result) < 3 and str(value.get("priority", "")).isdigit() and int(value.get("priority", 0)) >= 4:
-            result[key] = value
-
         if len(result) >= max_items:
             break
     return result
 
 
 def build_event_engine_slice(session_id: str, current_state: dict[str, Any], scene_ids: list[str]) -> dict[str, Any]:
-    location_id = current_state.get("current_location_id")
-    if not isinstance(location_id, str):
-        location_id = None
-
-    date_value = current_state.get("current_date")
-    if not isinstance(date_value, str):
-        date_value = None
+    location_id = current_state.get("current_location_id") if isinstance(current_state.get("current_location_id"), str) else None
+    date_value = current_state.get("current_date") if isinstance(current_state.get("current_date"), str) else None
 
     event_seeds = read_json_state(session_id, "event_seeds.json")
     event_queue = read_json_state(session_id, "event_queue.json")
@@ -669,6 +731,7 @@ def build_event_engine_slice(session_id: str, current_state: dict[str, Any], sce
         },
         "event_seeds": slice_state_items(
             event_seeds_items,
+            current_state,
             scene_ids,
             location_id,
             date_value,
@@ -677,14 +740,16 @@ def build_event_engine_slice(session_id: str, current_state: dict[str, Any], sce
         ),
         "event_queue": slice_state_items(
             event_queue_items,
+            current_state,
             scene_ids,
             location_id,
             date_value,
-            statuses={"pending", "ready", "active"},
+            statuses={"ready", "active"},
             max_items=10,
         ),
         "gossip_state": slice_state_items(
             gossip_items,
+            current_state,
             scene_ids,
             location_id,
             date_value,
@@ -694,6 +759,7 @@ def build_event_engine_slice(session_id: str, current_state: dict[str, Any], sce
         "rating_state": rating_slice,
         "energy_incidents": slice_state_items(
             energy_items,
+            current_state,
             scene_ids,
             location_id,
             date_value,
@@ -703,6 +769,7 @@ def build_event_engine_slice(session_id: str, current_state: dict[str, Any], sce
         "selection_protocol": [
             "First follow the current calendar beat.",
             "Then choose one suitable queued event or seed if it matches current place, characters and pacing.",
+            "Do not use locked or pending delayed-character entries until their trigger_after / requires_story_flag is satisfied.",
             "If no suitable event exists, create one small seed from visible scene behavior.",
             "Do not reveal director notes to the user.",
             "After scene, save new seeds, queued events, gossip, rating or energy incident changes through applyTurnResultSimple.",
@@ -726,14 +793,12 @@ def build_event_engine_slice(session_id: str, current_state: dict[str, Any], sce
 def extract_calendar_day_block(calendar_text: str, day_id: str | None, date_value: str | None) -> str:
     lines = calendar_text.splitlines()
     start: int | None = None
-
     if day_id:
         pattern = f"  {day_id}:"
         for i, line in enumerate(lines):
             if line.startswith(pattern):
                 start = i
                 break
-
     if start is None and date_value:
         for i, line in enumerate(lines):
             if f'date: "{date_value}"' in line or f"date: '{date_value}'" in line or f"date: {date_value}" in line:
@@ -744,7 +809,6 @@ def extract_calendar_day_block(calendar_text: str, day_id: str | None, date_valu
                 break
     if start is None:
         return ""
-
     end = len(lines)
     for j in range(start + 1, len(lines)):
         if re.match(r"^  [A-Za-z0-9_]+:\s*$", lines[j]):
@@ -765,7 +829,6 @@ def build_calendar_slice(session_id: str, current_state: dict[str, Any]) -> dict
         current_day_id if isinstance(current_day_id, str) else None,
         current_date if isinstance(current_date, str) else None,
     )
-
     protocol = ""
     if "calendar_reading_protocol:" in calendar_text:
         protocol = trim_text(calendar_text.split("\ndays:", 1)[0], 2500)
@@ -787,14 +850,12 @@ def format_date_human(date_value: Any, weekday_value: Any) -> str:
     parts = date_value.split("-")
     if len(parts) != 3:
         return date_value
-
     try:
         year = int(parts[0])
         month = int(parts[1])
         day = int(parts[2])
     except ValueError:
         return date_value
-
     month_name = MONTHS_RU.get(month, parts[1])
     weekday = WEEKDAY_SHORT.get(str(weekday_value or "").lower(), str(weekday_value or "").lower())
     if weekday:
@@ -820,16 +881,18 @@ def format_weather_human(weather: Any) -> str:
     wind = weather.get("wind")
     precipitation = weather.get("precipitation")
     ground = weather.get("ground")
-
     if condition:
         parts.append(str(condition))
     if temp is not None:
         parts.append(f"{temp}°C")
     if wind:
-        parts.append(str(wind))
+        wind_text = str(wind)
+        if "ветер" not in wind_text:
+            wind_text = f"{wind_text} ветер"
+        parts.append(wind_text)
     if precipitation and precipitation not in {"нет", "none", "no"}:
         parts.append(str(precipitation))
-    if ground:
+    if ground and ground not in {"сухо", "сухая"}:
         parts.append(str(ground))
     return ", ".join(parts)
 
@@ -839,72 +902,59 @@ def format_pov_state_human(current_state: dict[str, Any]) -> str:
     status = {}
     if isinstance(current_state.get("character_status"), dict):
         status = current_state.get("character_status", {}).get(pov_id, {}) or {}
-
     bits: list[str] = []
-
     physical_state = status.get("physical_state")
     if physical_state:
         bits.append(str(physical_state))
-
     pain = status.get("pain")
     injuries = status.get("injuries")
     if pain:
         bits.append(f"боль: {pain}")
     if isinstance(injuries, list) and injuries:
         bits.append("травмы: " + ", ".join(str(item) for item in injuries))
-    elif not pain:
+    elif status.get("show_no_injuries") is True:
         bits.append("без травм")
-
     fatigue = status.get("fatigue")
-    if isinstance(fatigue, (int, float)) and fatigue > 0:
+    if isinstance(fatigue, int | float) and fatigue > 0:
         bits.append(f"усталость {fatigue}/10")
-
     clothing_state = status.get("clothing_state")
     hair_state = status.get("hair_state")
     if clothing_state:
         bits.append(str(clothing_state))
     if hair_state:
         bits.append(str(hair_state))
-
     return "; ".join(bits)
 
 
 def format_context_human(current_state: dict[str, Any], location_text: str) -> str:
     pieces: list[str] = []
-
-    visible_items = current_state.get("scene_continuity", {}).get("visible_item_state") if isinstance(current_state.get("scene_continuity"), dict) else {}
+    scene_continuity = current_state.get("scene_continuity", {})
+    visible_items = scene_continuity.get("visible_item_state") if isinstance(scene_continuity, dict) else {}
     if isinstance(visible_items, dict):
         for key, value in visible_items.items():
             if value:
                 pieces.append(str(value) if not isinstance(value, bool) else str(key))
-
     nearby = as_id_list(current_state.get("nearby_character_ids"))
     active = as_id_list(current_state.get("active_character_ids"))
     pov = current_state.get("pov_character_id")
     scene_people = [cid for cid in unique(active + nearby) if cid != pov]
     if scene_people:
-        readable = [cid.replace("char_", "") for cid in scene_people]
-        pieces.extend(readable)
-
+        pieces.extend([cid.replace("char_", "") for cid in scene_people])
     context_line = simple_yaml_value(location_text, "header_context")
     if context_line:
         pieces.append(context_line)
-
     return ", ".join(unique([p for p in pieces if p]))
 
 
 def location_human(session_id: str | None, location_id: Any) -> dict[str, str]:
     if not isinstance(location_id, str):
         return {"location_id": "", "display_name": "", "header_name": "", "short_name": "", "raw_card": ""}
-
     files = LOCATION_REQUIRED_FILES.get(location_id, [])
     card_path = files[0] if files else ""
     text = safe_read_text(card_path, session_id, max_chars=2500) if card_path else ""
-
     display = simple_yaml_value(text, "display_name") or location_id
     header = simple_yaml_value(text, "header_name") or display
     short = simple_yaml_value(text, "short_name") or display
-
     return {
         "location_id": location_id,
         "display_name": display,
@@ -919,14 +969,12 @@ def build_current_frame(current_state: dict[str, Any], session_id: str | None = 
     status = {}
     if isinstance(current_state.get("character_status"), dict):
         status = current_state.get("character_status", {}).get(pov_id, {}) or {}
-
     loc = location_human(session_id, current_state.get("current_location_id"))
     weather_human = format_weather_human(current_state.get("weather", {}))
     date_human = format_date_human(current_state.get("current_date"), current_state.get("current_day_of_week"))
     time_human = format_time_human(current_state.get("current_time"), current_state.get("time_of_day"))
     pov_state_human = format_pov_state_human(current_state)
     context_human = format_context_human(current_state, loc.get("raw_card", ""))
-
     return {
         "date": current_state.get("current_date"),
         "day_of_week": current_state.get("current_day_of_week"),
@@ -947,6 +995,7 @@ def build_current_frame(current_state: dict[str, Any], session_id: str | None = 
         "mentioned_character_ids": as_id_list(current_state.get("mentioned_character_ids")),
         "scheduled_character_ids": as_id_list(current_state.get("scheduled_character_ids")),
         "delayed_character_ids": as_id_list(current_state.get("delayed_character_ids")),
+        "story_flags": current_state.get("story_flags", {}),
         "header_values": {
             "date_human": date_human,
             "time_human": time_human,
@@ -1050,20 +1099,116 @@ def scene_density_contract() -> dict[str, Any]:
     }
 
 
+def npc_autonomy_contract() -> dict[str, Any]:
+    return {
+        "priority": "high",
+        "player_controls": [
+            "POV character actions",
+            "POV character direct speech",
+            "POV character attempts and choices",
+        ],
+        "player_does_not_control": [
+            "NPC decisions",
+            "NPC emotions",
+            "NPC obedience",
+            "NPC knowledge",
+            "NPC attraction, fear, trust or respect",
+            "world/system reactions",
+            "rumors, rating and staff conclusions",
+        ],
+        "rules": [
+            "NPCs act from their own goals, character, knowledge, relationships and current pressure.",
+            "A player command to an NPC is an attempt, not a guaranteed result.",
+            "A player thought is not world knowledge.",
+            "Do not make NPCs helpful, understanding or compliant by default.",
+            "Do not expose NPC inner thoughts as facts; show intent through visible behavior.",
+        ],
+    }
+
+
+def relationship_behavior_contract() -> dict[str, Any]:
+    return {
+        "priority": "high",
+        "source": "scene_contract.relationship_slice + character_memory_slice",
+        "levels": {
+            "trust": "Higher trust allows softer proximity, private hints, protection or honest warning. Low trust causes guarded, transactional, skeptical behavior.",
+            "tension": "Higher tension sharpens tone, interruptions, avoidance, boundary-testing and visible irritation.",
+            "respect": "Higher respect makes NPC take POV seriously even when disagreeing. Low respect creates dismissal or underestimation.",
+            "curiosity": "Higher curiosity makes NPC observe, test, ask or approach again.",
+            "jealousy": "Higher jealousy changes attention, competitiveness, social positioning and indirect remarks.",
+            "resentment": "Higher resentment makes NPC remember slights and use colder, harsher or more obstructive behavior.",
+            "affection": "Affection is not automatic romance. It can show as attention, warmth, protective irritation or desire to stay near.",
+        },
+        "behavior_next_rule": "If a relationship or character_memory item has behavior_next, it must influence the next relevant scene unless current state prevents it.",
+        "evidence_rule": "Do not change relationship levels without visible evidence from the scene: line, action, refusal, protection, insult, risk, secret, debt, public embarrassment or trust signal.",
+    }
+
+
+def memory_write_contract() -> dict[str, Any]:
+    return {
+        "priority": "highest_after_meaningful_scene",
+        "importance_levels": {
+            "critical": "Must save: identity reveal, promise/debt, injury, access/rule consequence, public reputation shift, relationship break/turn, secret seen/heard, strong conflict, major quote.",
+            "high": "Save: sharp line that changes tension/respect/curiosity, visible protection/refusal, new suspicion, wrong belief, recurring behavior pattern, event seed.",
+            "medium": "Save only if it may matter later: small tease, mild embarrassment, staff note, first impression, minor route/access detail.",
+            "low": "Do not save alone: routine movement, generic look, repeated banter, drinking water, standing in line, neutral observation.",
+        },
+        "spoken_line_rules": [
+            "Save exact quotes only when they changed relationship, reputation, knowledge, promise/debt, conflict, suspicion or future behavior.",
+            "Do not save every line.",
+            "Save who said it, who heard it, visible context and why it matters.",
+        ],
+        "after_scene_required_decision": [
+            "Did anyone learn or misunderstand something? -> knowledge_changes / character_memory_changes.",
+            "Did a relationship level or behavior_next change? -> relationship_changes and character_memory_changes.",
+            "Did an objective event matter? -> shared_incident_changes.",
+            "Did a future hook appear? -> open_thread_changes or event_seed_changes.",
+            "Did public attention change? -> gossip_changes / rating_changes / reputation-like state.",
+        ],
+        "do_not_save": [
+            "hidden lore not revealed in scene",
+            "NPC thoughts as fact",
+            "player intention that was not visible/heard",
+            "routine action with no future value",
+        ],
+    }
+
+
+def knowledge_write_contract() -> dict[str, Any]:
+    return {
+        "priority": "high",
+        "rules": [
+            "Knowledge requires source: saw, heard, was told, read, inferred from visible facts, or misunderstood.",
+            "Suspicion is not certainty; store certainty/source.",
+            "Wrong beliefs are allowed and should not auto-correct because the engine knows truth.",
+            "A player thought does not update NPC knowledge.",
+            "Hidden lore is not character knowledge unless revealed in-scene with a source.",
+        ],
+        "recommended_fields": [
+            "fact_id",
+            "text",
+            "source",
+            "certainty",
+            "seen_by",
+            "heard_by",
+            "known_by",
+            "wrong_belief",
+            "scene_id",
+        ],
+    }
+
+
 def build_scene_contract(session_id: str, current_state: dict[str, Any], mode: str) -> dict[str, Any]:
     selected = selected_character_ids(current_state)
     scene_ids = unique(selected["full"])
-
     arc_id = current_state.get("current_arc_id") or "arc_001_academy_start"
     arc_file = f"story/arcs/{arc_id}.yaml"
-
     location_id = current_state.get("current_location_id") or "loc_academy_main"
     location_files = LOCATION_REQUIRED_FILES.get(location_id, [])
-
     current_frame = build_current_frame(current_state, session_id)
 
     return {
-        "version": "scene_contract_v2_event_engine_runtime_slices",
+        "version": "scene_contract_v3_character_memory_relationship_runtime",
         "mode": mode,
         "current_frame": current_frame,
         "header_contract": header_contract(),
@@ -1082,23 +1227,31 @@ def build_scene_contract(session_id: str, current_state: dict[str, Any], mode: s
             "reference_character_ids": selected["reference"],
             "full_rule": "Full files are loaded only for POV/active/nearby characters.",
             "reference_rule": "Mentioned/scheduled/delayed characters use light info unless they enter the scene.",
-            "active_character_file_rule": "For every full character, behavior.md and voice.md must be used. If missing from contract, fetch them through getProjectFileByQuery before writing scene.",
+            "active_character_file_rule": "For every full character, behavior.md and voice.md must be used. They are provided in character_slice for normal play turns.",
         },
+        "character_slice": build_character_slice(session_id, current_state, selected["full"]),
+        "character_memory_slice": build_character_memory_slice(session_id, scene_ids),
         "relationship_slice": build_relationship_slice(session_id, scene_ids),
+        "relationship_behavior_contract": relationship_behavior_contract(),
         "knowledge_slice": build_knowledge_slice(session_id, scene_ids),
+        "knowledge_write_contract": knowledge_write_contract(),
         "open_threads_slice": build_open_threads_slice(session_id, scene_ids),
         "shared_incidents_slice": build_shared_incidents_slice(session_id, scene_ids),
         "event_engine_slice": build_event_engine_slice(session_id, current_state, scene_ids),
+        "npc_autonomy_contract": npc_autonomy_contract(),
+        "memory_write_contract": memory_write_contract(),
         "response_format_contract": response_format_contract(),
         "scene_density_contract": scene_density_contract(),
         "selection_rules": [
             "Do not load every project file for a normal scene.",
             "Use current calendar day only unless time skip/audit requires more.",
-            "Use full character files only for POV/active/nearby characters.",
-            "For full characters, use behavior.md and voice.md; fetch them by query if missing.",
+            "Use character_slice behavior/voice for POV/active/nearby characters.",
+            "Use character_memory_slice for what current characters personally remember, believe or misunderstand.",
+            "Use relationship_slice and behavior_next to decide NPC tone, distance, resistance and initiative.",
+            "Use knowledge_slice before NPC claims.",
             "Use light character info for mentioned/scheduled/delayed characters.",
-            "Use relationships, knowledge and incidents only for characters present or directly affecting the current beat.",
             "Use event_engine_slice to create interesting scene pressure between calendar points.",
+            "After the scene, save important memory by importance level, not every line.",
         ],
     }
 
@@ -1113,7 +1266,7 @@ def root() -> dict[str, Any]:
     return {
         "status": "ok",
         "project": PROJECT_SLUG,
-        "version": "3.2.2",
+        "version": "3.3.0",
         "actions_schema": "/openapi-actions.json",
         "health": "/health",
         "debug_volume": "/debug/volume",
@@ -1122,7 +1275,7 @@ def root() -> dict[str, Any]:
 
 @app.get("/health")
 def health() -> dict[str, Any]:
-    return {"success": True, "project": PROJECT_SLUG, "version": "3.2.2", "time": utc_now()}
+    return {"success": True, "project": PROJECT_SLUG, "version": "3.3.0", "time": utc_now()}
 
 
 @app.get("/debug/volume")
@@ -1174,18 +1327,15 @@ def get_turn_contract(session_id: str, req: TurnContractRequest) -> dict[str, An
         "checks": [
             "Novel director has top priority: write a living interactive scene, not a registration instruction.",
             "Use scene_contract first; required_files are support, not the whole project.",
+            "Use character_slice behavior and voice for full characters before writing scene.",
+            "Use character_memory_slice to keep personal memory and wrong beliefs alive.",
+            "Use relationship_slice + relationship_behavior_contract to make relationships affect NPC behavior.",
+            "Use knowledge_slice before NPC claims; do not give NPC hidden lore.",
             "Use event_engine_slice to create interesting events between calendar points.",
-            "Do not reveal director notes to user.",
-            "Default play turn calls should use include_file_contents=false to avoid ResponseTooLargeError.",
-            "Use scene_contract.header_contract and current_frame.header_values for the header.",
-            "Do not translate location names to English; use location_human.",
-            "Use current calendar slice only unless time skip/audit requires more.",
-            "Use full character files only for POV/active/nearby characters.",
-            "For full characters, use behavior.md and voice.md; fetch them by query if missing.",
-            "Use light info for mentioned/scheduled/delayed characters.",
-            "Use relationship/knowledge slices from scene_contract before NPC claims.",
+            "Do not use locked/pending delayed-character entries before their trigger flag.",
+            "After a meaningful scene, save important events/quotes/knowledge/relationships through applyTurnResultSimple.",
+            "Do not save every line; save only future-relevant memory by importance level.",
             "Obey response_format_contract and scene_density_contract.",
-            "After a meaningful scene, call applyTurnResult or applyTurnResultSimple.",
         ],
     }
 
@@ -1223,7 +1373,6 @@ def apply_turn_result(session_id: str, req: ApplyTurnResultRequest) -> dict[str,
     ]
 
     updated = ["scene_history.jsonl"]
-
     for filename, patch in patch_map:
         if patch:
             write_json_state(sid, filename, patch)
@@ -1237,6 +1386,7 @@ def apply_turn_result(session_id: str, req: ApplyTurnResultRequest) -> dict[str,
                 current = {}
             deep_merge(current, patch)
             current.setdefault("character_id", character_id)
+            current["last_updated_scene_id"] = req.scene_id
             current["updated_at"] = utc_now()
             write_json_atomic(path, current)
             updated.append(f"character_memory/{character_id}.json")
@@ -1248,7 +1398,6 @@ def apply_turn_result(session_id: str, req: ApplyTurnResultRequest) -> dict[str,
     compaction["needs_compaction"] = compaction["since_last_compaction"] >= compaction["compact_every_turns"]
     compaction["last_scene_id"] = req.scene_id
     compaction["updated_at"] = utc_now()
-
     write_state(sid, "compaction_state.json", compaction)
     updated.append("compaction_state.json")
 
@@ -1288,22 +1437,17 @@ def apply_turn_result_simple(session_id: str, req: ApplyTurnResultSimpleRequest)
 @app.post("/api/v1/sessions/{session_id}/compact")
 def compact_session(session_id: str, req: CompactRequest) -> dict[str, Any]:
     sid, _ = ensure_session(session_id, reset=False)
-
     if req.recent_turns_md is not None:
         write_state(sid, "recent_turns.md", req.recent_turns_md)
-
     for filename, patch in req.state_updates.items():
         if isinstance(patch, dict) and filename.endswith(".json"):
             write_json_state(sid, filename, patch)
-
     compaction = read_json_state(sid, "compaction_state.json")
     compaction["last_compaction_at"] = utc_now()
     compaction["last_compaction_reason"] = req.reason
     compaction["since_last_compaction"] = 0
     compaction["needs_compaction"] = False
-
     write_state(sid, "compaction_state.json", compaction)
-
     return {"success": True, "session_id": sid, "status": "compacted"}
 
 
@@ -1314,7 +1458,6 @@ def read_session_state_file(session_id: str, filename: str) -> PlainTextResponse
         text = read_project_or_runtime_file(f"state/{safe_filename}", session_id)
     except Exception as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-
     return PlainTextResponse(text)
 
 
@@ -1324,7 +1467,6 @@ def read_file(file_path: str, session_id: str | None = None) -> PlainTextRespons
         text = read_project_or_runtime_file(safe_repo_path(file_path), session_id)
     except Exception as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-
     return PlainTextResponse(text)
 
 
@@ -1334,17 +1476,15 @@ def read_file_query(path: str = Query(...), session_id: str | None = None) -> Pl
         text = read_project_or_runtime_file(safe_repo_path(path), session_id)
     except Exception as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-
     return PlainTextResponse(text)
 
 
 @app.get("/openapi-actions.json")
 def openapi_actions() -> dict[str, Any]:
     server = PUBLIC_BASE_URL or "https://your-service.up.railway.app"
-
     return {
         "openapi": "3.1.0",
-        "info": {"title": f"{PROJECT_SLUG} GPT Actions", "version": "3.2.2"},
+        "info": {"title": f"{PROJECT_SLUG} GPT Actions", "version": "3.3.0"},
         "servers": [{"url": server}],
         "paths": {
             "/health": {

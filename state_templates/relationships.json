@@ -1,5 +1,40 @@
 {
-  "schema": "relationships_v1",
+  "schema": "relationships_v2",
   "session_id": "{{SESSION_ID}}",
-  "relationships": {}
+  "relationships": {
+    "char_akira__char_livia": {
+      "characters": [
+        "char_akira",
+        "char_livia"
+      ],
+      "status": "close_school_friendship",
+      "public_status": "school friends",
+      "private_status": "close old friendship with teasing, familiarity and boundaries",
+      "levels": {
+        "trust": 72,
+        "tension": 8,
+        "respect": 45,
+        "curiosity": 15,
+        "jealousy": 0,
+        "resentment": 0,
+        "affection": 35
+      },
+      "known_by": [
+        "char_akira",
+        "char_livia"
+      ],
+      "memory": [
+        {
+          "scene_id": "pre_start_backstory",
+          "summary": "Akira and Livia have known each other for about six years before entering Astrain Academy.",
+          "evidence": "character setup",
+          "importance": "critical"
+        }
+      ],
+      "open_threads": [],
+      "shared_incidents": [],
+      "behavior_next": "Livia can tease, cover awkwardness with noise, notice Akira's habits and stay socially active, but she must not speak for Akira or act as a guide.",
+      "last_interaction": null
+    }
+  }
 }
