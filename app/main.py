@@ -31,7 +31,7 @@ COMPACT_EVERY_TURNS = int(os.getenv("COMPACT_EVERY_TURNS", "15"))
 MAX_FILE_CHARS = int(os.getenv("MAX_FILE_CHARS", "18000"))
 MAX_SCENE_SLICE_CHARS = int(os.getenv("MAX_SCENE_SLICE_CHARS", "6000"))
 
-app = FastAPI(title=f"{PROJECT_SLUG} GPT Actions API", version="3.2.1")
+app = FastAPI(title=f"{PROJECT_SLUG} GPT Actions API", version="3.2.2")
 
 
 class CreateSessionRequest(BaseModel):
@@ -93,6 +93,11 @@ class CompactRequest(BaseModel):
 
 
 CORE_REQUIRED_FILES = [
+    "MANCHESS_RULES.md",
+    "engine/turn_contract.md",
+    "engine/loading_policy.md",
+    "engine/source_priority.md",
+    "engine/current_frame_policy.md",
     "engine/novel_director_core.md",
     "engine/output_format.md",
     "engine/scene_generation_rules.md",
@@ -104,14 +109,11 @@ CORE_REQUIRED_FILES = [
     "state/recent_turns.md",
     "characters/characters_index.yaml",
     "world/locations/locations_index.yaml",
+    "world/academy/academy_index.yaml",
     "knowledge/knowledge_rules.md",
 ]
 
 TECHNICAL_EXTRA_FILES = [
-    "MANCHESS_RULES.md",
-    "engine/turn_contract.md",
-    "engine/loading_policy.md",
-    "engine/source_priority.md",
     "engine/session_policy.md",
     "engine/npc_knowledge_rules.md",
     "engine/anti_hallucination_rules.md",
@@ -129,32 +131,33 @@ AUDIT_EXTRA_FILES = [
     "relationships/shared_incidents/incident_template.yaml",
 ]
 
+STATE_ITEM_CONTAINER_KEYS: dict[str, str] = {
+    "relationships.json": "relationships",
+    "knowledge_state.json": "character_knowledge",
+    "open_threads.json": "threads",
+    "shared_incidents.json": "incidents",
+    "event_seeds.json": "items",
+    "event_queue.json": "items",
+    "gossip_state.json": "items",
+    "energy_incidents.json": "items",
+}
 
-def character_core_files(folder: str) -> list[str]:
-    return [
-        f"characters/{folder}/character_card.yaml",
-        f"characters/{folder}/appearance.md",
-        f"characters/{folder}/behavior.md",
-        f"characters/{folder}/voice.md",
-        f"characters/{folder}/knowledge.yaml",
-        f"characters/{folder}/links.yaml",
-    ]
+STATE_METADATA_KEYS = {
+    "schema",
+    "session_id",
+    "updated_at",
+    "created_at",
+    "description",
+    "version",
+}
 
-
-def character_light_files(folder: str) -> list[str]:
-    return [f"characters/{folder}/character_card.yaml"]
-
-
-def character_goal_files(folder: str) -> list[str]:
-    return [f"characters/{folder}/goals.yaml"]
-
-
-def character_detail_files(folder: str) -> list[str]:
-    return [
-        f"characters/{folder}/energy.yaml",
-        f"characters/{folder}/habits.md",
-        f"characters/{folder}/past.md",
-    ]
+KNOWLEDGE_TOP_LEVEL_KEYS = {
+    "public_knowledge",
+    "hidden_truths",
+    "character_knowledge",
+    "evidence_log",
+    "speaker_labels",
+}
 
 
 CHARACTER_FOLDERS: dict[str, str] = {
@@ -259,14 +262,30 @@ def deep_merge(base: dict[str, Any], patch: dict[str, Any]) -> dict[str, Any]:
     return base
 
 
-def parse_json_text(value: str) -> dict[str, Any]:
-    if not value:
+def parse_json_text(value: str, field_name: str) -> dict[str, Any]:
+    if value is None or not str(value).strip():
         return {}
     try:
         parsed = json.loads(value)
-    except json.JSONDecodeError:
-        return {}
-    return parsed if isinstance(parsed, dict) else {}
+    except json.JSONDecodeError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "error": "invalid_json",
+                "field": field_name,
+                "message": str(exc),
+            },
+        ) from exc
+    if not isinstance(parsed, dict):
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "error": "invalid_json_type",
+                "field": field_name,
+                "message": "JSON value must be an object/dict.",
+            },
+        )
+    return parsed
 
 
 def read_json_state(session_id: str, filename: str) -> dict[str, Any]:
@@ -274,15 +293,88 @@ def read_json_state(session_id: str, filename: str) -> dict[str, Any]:
     return value if isinstance(value, dict) else {}
 
 
+def state_container_items(state: dict[str, Any], container_key: str) -> dict[str, Any]:
+    """Read state items from the canonical container and legacy top-level items."""
+    result: dict[str, Any] = {}
+    for key, value in state.items():
+        if key in STATE_METADATA_KEYS or key == container_key:
+            continue
+        if key in KNOWLEDGE_TOP_LEVEL_KEYS:
+            continue
+        if isinstance(value, dict):
+            result[key] = value
+    container = state.get(container_key, {})
+    if isinstance(container, dict):
+        result.update({key: value for key, value in container.items() if isinstance(value, dict)})
+    return result
+
+
+def normalize_state_patch(filename: str, patch: dict[str, Any]) -> dict[str, Any]:
+    container_key = STATE_ITEM_CONTAINER_KEYS.get(filename)
+    if not container_key or not patch:
+        return patch
+
+    normalized: dict[str, Any] = {}
+    container_patch: dict[str, Any] = {}
+
+    for key, value in patch.items():
+        if key == container_key and isinstance(value, dict):
+            deep_merge(container_patch, value)
+            continue
+        if key in STATE_METADATA_KEYS:
+            normalized[key] = value
+            continue
+        if filename == "knowledge_state.json" and key in KNOWLEDGE_TOP_LEVEL_KEYS:
+            normalized[key] = value
+            continue
+        if isinstance(value, dict):
+            container_patch[key] = value
+        else:
+            normalized[key] = value
+
+    if container_patch:
+        normalized.setdefault(container_key, {})
+        deep_merge(normalized[container_key], container_patch)
+    return normalized
+
+
 def write_json_state(session_id: str, filename: str, patch: dict[str, Any]) -> None:
     current = read_json_state(session_id, filename)
-    deep_merge(current, patch)
+    normalized_patch = normalize_state_patch(filename, patch)
+    deep_merge(current, normalized_patch)
     current["updated_at"] = utc_now()
     write_state(session_id, filename, current)
 
 
 def character_folder(character_id: str) -> str | None:
     return CHARACTER_FOLDERS.get(character_id)
+
+
+def character_core_files(folder: str) -> list[str]:
+    return [
+        f"characters/{folder}/character_card.yaml",
+        f"characters/{folder}/appearance.md",
+        f"characters/{folder}/behavior.md",
+        f"characters/{folder}/voice.md",
+        f"characters/{folder}/knowledge.yaml",
+        f"characters/{folder}/links.yaml",
+    ]
+
+
+def character_light_files(folder: str) -> list[str]:
+    return [f"characters/{folder}/character_card.yaml"]
+
+
+def character_goal_files(folder: str) -> list[str]:
+    return [f"characters/{folder}/goals.yaml"]
+
+
+def character_detail_files(folder: str) -> list[str]:
+    return [
+        f"characters/{folder}/energy.yaml",
+        f"characters/{folder}/habits.md",
+        f"characters/{folder}/past.md",
+    ]
 
 
 def add_character_files(
@@ -401,7 +493,8 @@ def relationship_participants(key: str, value: Any) -> list[str]:
 
 
 def build_relationship_slice(session_id: str, scene_ids: list[str]) -> dict[str, Any]:
-    relationships = read_json_state(session_id, "relationships.json")
+    relationships_state = read_json_state(session_id, "relationships.json")
+    relationships = state_container_items(relationships_state, "relationships")
     result: dict[str, Any] = {}
     for key, value in relationships.items():
         participants = relationship_participants(key, value)
@@ -412,11 +505,27 @@ def build_relationship_slice(session_id: str, scene_ids: list[str]) -> dict[str,
 
 def build_knowledge_slice(session_id: str, scene_ids: list[str]) -> dict[str, Any]:
     knowledge = read_json_state(session_id, "knowledge_state.json")
-    return {cid: knowledge.get(cid, {}) for cid in scene_ids if cid in knowledge}
+    character_knowledge = knowledge.get("character_knowledge", {})
+    if not isinstance(character_knowledge, dict):
+        character_knowledge = {}
+
+    result = {
+        cid: character_knowledge.get(cid, {})
+        for cid in scene_ids
+        if isinstance(character_knowledge.get(cid, {}), dict)
+    }
+
+    speaker_labels = knowledge.get("speaker_labels", {})
+    if isinstance(speaker_labels, dict):
+        focused_labels = {cid: speaker_labels.get(cid) for cid in scene_ids if cid in speaker_labels}
+        if focused_labels:
+            result["speaker_labels"] = focused_labels
+    return result
 
 
 def build_open_threads_slice(session_id: str, scene_ids: list[str]) -> dict[str, Any]:
-    open_threads = read_json_state(session_id, "open_threads.json")
+    open_threads_state = read_json_state(session_id, "open_threads.json")
+    open_threads = state_container_items(open_threads_state, "threads")
     result: dict[str, Any] = {}
     for key, value in open_threads.items():
         if not isinstance(value, dict):
@@ -433,7 +542,8 @@ def build_open_threads_slice(session_id: str, scene_ids: list[str]) -> dict[str,
 
 
 def build_shared_incidents_slice(session_id: str, scene_ids: list[str]) -> dict[str, Any]:
-    incidents = read_json_state(session_id, "shared_incidents.json")
+    incidents_state = read_json_state(session_id, "shared_incidents.json")
+    incidents = state_container_items(incidents_state, "incidents")
     result: dict[str, Any] = {}
     for key, value in incidents.items():
         if not isinstance(value, dict):
@@ -517,7 +627,6 @@ def slice_state_items(
 
         if len(result) >= max_items:
             break
-
     return result
 
 
@@ -537,6 +646,11 @@ def build_event_engine_slice(session_id: str, current_state: dict[str, Any], sce
     rating_state = read_json_state(session_id, "rating_state.json")
     energy_incidents = read_json_state(session_id, "energy_incidents.json")
 
+    event_seeds_items = state_container_items(event_seeds, "items")
+    event_queue_items = state_container_items(event_queue, "items")
+    gossip_items = state_container_items(gossip_state, "items")
+    energy_items = state_container_items(energy_incidents, "items")
+
     rating_slice = {
         cid: rating_state.get(cid, {})
         for cid in scene_ids
@@ -554,7 +668,7 @@ def build_event_engine_slice(session_id: str, current_state: dict[str, Any], sce
             "note": "Use as hidden planning guidance. Do not show director notes to the user.",
         },
         "event_seeds": slice_state_items(
-            event_seeds,
+            event_seeds_items,
             scene_ids,
             location_id,
             date_value,
@@ -562,7 +676,7 @@ def build_event_engine_slice(session_id: str, current_state: dict[str, Any], sce
             max_items=10,
         ),
         "event_queue": slice_state_items(
-            event_queue,
+            event_queue_items,
             scene_ids,
             location_id,
             date_value,
@@ -570,7 +684,7 @@ def build_event_engine_slice(session_id: str, current_state: dict[str, Any], sce
             max_items=10,
         ),
         "gossip_state": slice_state_items(
-            gossip_state,
+            gossip_items,
             scene_ids,
             location_id,
             date_value,
@@ -579,7 +693,7 @@ def build_event_engine_slice(session_id: str, current_state: dict[str, Any], sce
         ),
         "rating_state": rating_slice,
         "energy_incidents": slice_state_items(
-            energy_incidents,
+            energy_items,
             scene_ids,
             location_id,
             date_value,
@@ -628,7 +742,6 @@ def extract_calendar_day_block(calendar_text: str, day_id: str | None, date_valu
                         start = j
                         break
                 break
-
     if start is None:
         return ""
 
@@ -637,7 +750,6 @@ def extract_calendar_day_block(calendar_text: str, day_id: str | None, date_valu
         if re.match(r"^  [A-Za-z0-9_]+:\s*$", lines[j]):
             end = j
             break
-
     return "\n".join(lines[start:end])
 
 
@@ -951,7 +1063,7 @@ def build_scene_contract(session_id: str, current_state: dict[str, Any], mode: s
     current_frame = build_current_frame(current_state, session_id)
 
     return {
-        "version": "scene_contract_v2_event_engine",
+        "version": "scene_contract_v2_event_engine_runtime_slices",
         "mode": mode,
         "current_frame": current_frame,
         "header_contract": header_contract(),
@@ -963,10 +1075,7 @@ def build_scene_contract(session_id: str, current_state: dict[str, Any], mode: s
         "location_slice": {
             "location_id": location_id,
             "source_files": location_files,
-            "content": {
-                path: safe_read_text(path, session_id, max_chars=2500)
-                for path in location_files
-            },
+            "content": {path: safe_read_text(path, session_id, max_chars=2500) for path in location_files},
         },
         "character_load_plan": {
             "full_character_ids": selected["full"],
@@ -1004,7 +1113,7 @@ def root() -> dict[str, Any]:
     return {
         "status": "ok",
         "project": PROJECT_SLUG,
-        "version": "3.2.1",
+        "version": "3.2.2",
         "actions_schema": "/openapi-actions.json",
         "health": "/health",
         "debug_volume": "/debug/volume",
@@ -1013,7 +1122,7 @@ def root() -> dict[str, Any]:
 
 @app.get("/health")
 def health() -> dict[str, Any]:
-    return {"success": True, "project": PROJECT_SLUG, "version": "3.2.1", "time": utc_now()}
+    return {"success": True, "project": PROJECT_SLUG, "version": "3.2.2", "time": utc_now()}
 
 
 @app.get("/debug/volume")
@@ -1135,9 +1244,7 @@ def apply_turn_result(session_id: str, req: ApplyTurnResultRequest) -> dict[str,
     compaction = read_json_state(sid, "compaction_state.json")
     compaction["total_game_turns"] = int(compaction.get("total_game_turns", 0) or 0) + 1
     compaction["since_last_compaction"] = int(compaction.get("since_last_compaction", 0) or 0) + 1
-    compaction["compact_every_turns"] = int(
-        compaction.get("compact_every_turns", COMPACT_EVERY_TURNS) or COMPACT_EVERY_TURNS
-    )
+    compaction["compact_every_turns"] = int(compaction.get("compact_every_turns", COMPACT_EVERY_TURNS) or COMPACT_EVERY_TURNS)
     compaction["needs_compaction"] = compaction["since_last_compaction"] >= compaction["compact_every_turns"]
     compaction["last_scene_id"] = req.scene_id
     compaction["updated_at"] = utc_now()
@@ -1161,19 +1268,19 @@ def apply_turn_result_simple(session_id: str, req: ApplyTurnResultSimpleRequest)
             scene_id=req.scene_id,
             scene_text=req.scene_text,
             technical=req.technical,
-            current_state_changes=parse_json_text(req.current_state_changes_json),
-            knowledge_changes=parse_json_text(req.knowledge_changes_json),
-            relationship_changes=parse_json_text(req.relationship_changes_json),
-            open_thread_changes=parse_json_text(req.open_thread_changes_json),
-            shared_incident_changes=parse_json_text(req.shared_incident_changes_json),
-            inventory_changes=parse_json_text(req.inventory_changes_json),
-            character_memory_changes=parse_json_text(req.character_memory_changes_json),
-            event_seed_changes=parse_json_text(req.event_seed_changes_json),
-            event_queue_changes=parse_json_text(req.event_queue_changes_json),
-            director_note_changes=parse_json_text(req.director_note_changes_json),
-            gossip_changes=parse_json_text(req.gossip_changes_json),
-            rating_changes=parse_json_text(req.rating_changes_json),
-            energy_incident_changes=parse_json_text(req.energy_incident_changes_json),
+            current_state_changes=parse_json_text(req.current_state_changes_json, "current_state_changes_json"),
+            knowledge_changes=parse_json_text(req.knowledge_changes_json, "knowledge_changes_json"),
+            relationship_changes=parse_json_text(req.relationship_changes_json, "relationship_changes_json"),
+            open_thread_changes=parse_json_text(req.open_thread_changes_json, "open_thread_changes_json"),
+            shared_incident_changes=parse_json_text(req.shared_incident_changes_json, "shared_incident_changes_json"),
+            inventory_changes=parse_json_text(req.inventory_changes_json, "inventory_changes_json"),
+            character_memory_changes=parse_json_text(req.character_memory_changes_json, "character_memory_changes_json"),
+            event_seed_changes=parse_json_text(req.event_seed_changes_json, "event_seed_changes_json"),
+            event_queue_changes=parse_json_text(req.event_queue_changes_json, "event_queue_changes_json"),
+            director_note_changes=parse_json_text(req.director_note_changes_json, "director_note_changes_json"),
+            gossip_changes=parse_json_text(req.gossip_changes_json, "gossip_changes_json"),
+            rating_changes=parse_json_text(req.rating_changes_json, "rating_changes_json"),
+            energy_incident_changes=parse_json_text(req.energy_incident_changes_json, "energy_incident_changes_json"),
         ),
     )
 
@@ -1237,7 +1344,7 @@ def openapi_actions() -> dict[str, Any]:
 
     return {
         "openapi": "3.1.0",
-        "info": {"title": f"{PROJECT_SLUG} GPT Actions", "version": "3.2.1"},
+        "info": {"title": f"{PROJECT_SLUG} GPT Actions", "version": "3.2.2"},
         "servers": [{"url": server}],
         "paths": {
             "/health": {
@@ -1326,7 +1433,10 @@ def openapi_actions() -> dict[str, Any]:
                         "required": True,
                         "content": {"application/json": {"schema": ApplyTurnResultSimpleRequest.model_json_schema()}},
                     },
-                    "responses": {"200": {"description": "Saved"}},
+                    "responses": {
+                        "200": {"description": "Saved"},
+                        "400": {"description": "Invalid JSON in one of the JSON string fields"},
+                    },
                 }
             },
             "/api/v1/sessions/{session_id}/compact": {
