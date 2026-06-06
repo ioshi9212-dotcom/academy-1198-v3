@@ -1,9 +1,9 @@
+
 from __future__ import annotations
 
 import json
 import os
 import re
-from pathlib import Path
 from typing import Any, Literal
 
 from fastapi import FastAPI, HTTPException, Query
@@ -30,9 +30,10 @@ PROJECT_SLUG = os.getenv("PROJECT_SLUG", "academy-1198-v3")
 PUBLIC_BASE_URL = os.getenv("PUBLIC_BASE_URL", "").rstrip("/")
 COMPACT_EVERY_TURNS = int(os.getenv("COMPACT_EVERY_TURNS", "15"))
 MAX_FILE_CHARS = int(os.getenv("MAX_FILE_CHARS", "18000"))
-MAX_SCENE_SLICE_CHARS = int(os.getenv("MAX_SCENE_SLICE_CHARS", "6000"))
+MAX_SCENE_SLICE_CHARS = int(os.getenv("MAX_SCENE_SLICE_CHARS", "2200"))
+RUNTIME_SUMMARY_CHARS = int(os.getenv("RUNTIME_SUMMARY_CHARS", "1600"))
 
-app = FastAPI(title=f"{PROJECT_SLUG} GPT Actions API", version="3.3.0")
+app = FastAPI(title=f"{PROJECT_SLUG} GPT Actions API", version="3.4.0")
 
 
 class CreateSessionRequest(BaseModel):
@@ -57,6 +58,7 @@ class ApplyTurnResultRequest(BaseModel):
     shared_incident_changes: dict[str, Any] = Field(default_factory=dict)
     inventory_changes: dict[str, Any] = Field(default_factory=dict)
     character_memory_changes: dict[str, Any] = Field(default_factory=dict)
+
     event_seed_changes: dict[str, Any] = Field(default_factory=dict)
     event_queue_changes: dict[str, Any] = Field(default_factory=dict)
     director_note_changes: dict[str, Any] = Field(default_factory=dict)
@@ -76,6 +78,7 @@ class ApplyTurnResultSimpleRequest(BaseModel):
     shared_incident_changes_json: str = "{}"
     inventory_changes_json: str = "{}"
     character_memory_changes_json: str = "{}"
+
     event_seed_changes_json: str = "{}"
     event_queue_changes_json: str = "{}"
     director_note_changes_json: str = "{}"
@@ -103,12 +106,13 @@ CORE_REQUIRED_FILES = [
     "engine/event_engine_rules.md",
     "engine/pov_rules.md",
     "engine/memory_update_rules.md",
-    "engine/runtime_memory_importance_rules.md",
-    "engine/npc_autonomy_rules.md",
+    "engine/runtime_character_slice_rules.md",
+    "engine/scene_assembly_gate.md",
     "story/pacing/no_filler_rules.md",
     "state/current_state.json",
     "state/recent_turns.md",
     "characters/characters_index.yaml",
+    "runtime/characters/characters_runtime_index.yaml",
     "world/locations/locations_index.yaml",
     "world/academy/academy_index.yaml",
     "knowledge/knowledge_rules.md",
@@ -118,7 +122,6 @@ TECHNICAL_EXTRA_FILES = [
     "engine/session_policy.md",
     "engine/npc_knowledge_rules.md",
     "engine/anti_hallucination_rules.md",
-    "engine/memory_schema.md",
     "validation/checklist_before_scene.md",
     "validation/calendar_skip_check.md",
     "validation/npc_knowledge_check.md",
@@ -151,7 +154,6 @@ STATE_METADATA_KEYS = {
     "created_at",
     "description",
     "version",
-    "project",
 }
 
 KNOWLEDGE_TOP_LEVEL_KEYS = {
@@ -197,6 +199,7 @@ MONTHS_RU = {
 WEEKDAY_SHORT = {
     "понедельник": "пн",
     "вторник": "вт",
+    "ср": "ср",
     "среда": "ср",
     "четверг": "чт",
     "пятница": "пт",
@@ -228,9 +231,11 @@ def as_id_list(value: Any) -> list[str]:
 
 
 def trim_text(text: str, max_chars: int) -> str:
+    if not isinstance(text, str):
+        return ""
     if len(text) <= max_chars:
         return text
-    return text[:max_chars] + "\n...[truncated]"
+    return text[:max_chars].rstrip() + "\n...[truncated]"
 
 
 def trim(text: str) -> dict[str, Any]:
@@ -248,11 +253,60 @@ def safe_read_text(path: str, session_id: str | None = None, max_chars: int = MA
 
 def simple_yaml_value(text: str, key: str) -> str | None:
     pattern = re.compile(rf"^\s*{re.escape(key)}\s*:\s*[\"']?(.*?)[\"']?\s*$", re.MULTILINE)
-    match = pattern.search(text)
+    match = pattern.search(text or "")
     if not match:
         return None
     value = match.group(1).strip()
     return value or None
+
+
+def compact_text_list(values: Any, max_items: int = 5, max_chars_each: int = 180) -> list[str]:
+    if not isinstance(values, list):
+        return []
+    result: list[str] = []
+    for item in values:
+        if isinstance(item, str):
+            result.append(trim_text(item, max_chars_each))
+        elif isinstance(item, dict):
+            text = item.get("summary") or item.get("text") or item.get("line") or item.get("fact") or json.dumps(item, ensure_ascii=False)
+            result.append(trim_text(str(text), max_chars_each))
+        if len(result) >= max_items:
+            break
+    return result
+
+
+def compact_value(value: Any, max_depth: int = 2, max_items: int = 6, max_text: int = 350) -> Any:
+    if max_depth <= 0:
+        if isinstance(value, str):
+            return trim_text(value, max_text)
+        if isinstance(value, (int, float, bool)) or value is None:
+            return value
+        return trim_text(json.dumps(value, ensure_ascii=False), max_text)
+
+    if isinstance(value, str):
+        return trim_text(value, max_text)
+    if isinstance(value, (int, float, bool)) or value is None:
+        return value
+    if isinstance(value, list):
+        return [compact_value(v, max_depth - 1, max_items, max_text) for v in value[:max_items]]
+    if isinstance(value, dict):
+        result: dict[str, Any] = {}
+        preferred = [
+            "id", "title", "type", "status", "priority", "date", "time", "location_id",
+            "characters", "participants", "witnesses", "known_by", "summary", "text",
+            "source", "certainty", "visible_facts", "spoken_lines", "relationship_effects",
+            "levels", "trust", "tension", "respect", "curiosity", "jealousy", "resentment",
+            "affection", "status", "private_status", "behavior_next", "triggers",
+            "last_interaction", "open_threads", "shared_incidents", "wrong_beliefs",
+            "beliefs", "seen_events", "heard_events", "source_file", "content",
+            "event_goal", "scene_pressure", "use_as", "do_not", "requires_story_flag",
+            "trigger_after",
+        ]
+        keys = [k for k in preferred if k in value] + [k for k in value.keys() if k not in preferred]
+        for key in keys[:max_items]:
+            result[key] = compact_value(value[key], max_depth - 1, max_items, max_text)
+        return result
+    return trim_text(str(value), max_text)
 
 
 def deep_merge(base: dict[str, Any], patch: dict[str, Any]) -> dict[str, Any]:
@@ -296,7 +350,6 @@ def read_json_state(session_id: str, filename: str) -> dict[str, Any]:
 
 
 def state_container_items(state: dict[str, Any], container_key: str) -> dict[str, Any]:
-    """Read state items from the canonical container and legacy top-level items."""
     result: dict[str, Any] = {}
     for key, value in state.items():
         if key in STATE_METADATA_KEYS or key == container_key:
@@ -350,53 +403,6 @@ def write_json_state(session_id: str, filename: str, patch: dict[str, Any]) -> N
 
 def character_folder(character_id: str) -> str | None:
     return CHARACTER_FOLDERS.get(character_id)
-
-
-def character_core_files(folder: str) -> list[str]:
-    return [
-        f"characters/{folder}/character_card.yaml",
-        f"characters/{folder}/appearance.md",
-        f"characters/{folder}/behavior.md",
-        f"characters/{folder}/voice.md",
-        f"characters/{folder}/knowledge.yaml",
-        f"characters/{folder}/links.yaml",
-    ]
-
-
-def character_light_files(folder: str) -> list[str]:
-    return [f"characters/{folder}/character_card.yaml"]
-
-
-def character_goal_files(folder: str) -> list[str]:
-    return [f"characters/{folder}/goals.yaml"]
-
-
-def character_detail_files(folder: str) -> list[str]:
-    return [
-        f"characters/{folder}/energy.yaml",
-        f"characters/{folder}/habits.md",
-        f"characters/{folder}/past.md",
-    ]
-
-
-def add_character_files(
-    required_files: list[str],
-    character_ids: list[str],
-    *,
-    level: Literal["light", "full", "goals", "details"] = "full",
-) -> None:
-    for character_id in character_ids:
-        folder = character_folder(character_id)
-        if not folder:
-            continue
-        if level == "light":
-            required_files.extend(character_light_files(folder))
-        elif level == "goals":
-            required_files.extend(character_goal_files(folder))
-        elif level == "details":
-            required_files.extend(character_detail_files(folder))
-        else:
-            required_files.extend(character_core_files(folder))
 
 
 def add_location_files(required_files: list[str], location_id: str | None) -> None:
@@ -467,14 +473,15 @@ def build_required_files(current_state: dict[str, Any], mode: str) -> list[str]:
     add_location_files(required_files, location_id)
 
     selected = selected_character_ids(current_state)
-    add_character_files(required_files, selected["full"], level="full")
-    add_character_files(required_files, selected["reference"], level="light")
+    for cid in selected["full"]:
+        folder = character_folder(cid)
+        if folder:
+            required_files.append(f"runtime/characters/{folder}.yaml")
 
-    for character_id in selected["full"]:
-        if should_load_goals(current_state, character_id):
-            add_character_files(required_files, [character_id], level="goals")
-        if should_load_details(current_state, character_id):
-            add_character_files(required_files, [character_id], level="details")
+    for cid in selected["reference"][:4]:
+        folder = character_folder(cid)
+        if folder:
+            required_files.append(f"runtime/characters/{folder}.yaml")
 
     if mode in {"technical", "audit", "transfer"}:
         required_files.extend(TECHNICAL_EXTRA_FILES)
@@ -486,31 +493,41 @@ def build_required_files(current_state: dict[str, Any], mode: str) -> list[str]:
 
 
 def build_character_slice(session_id: str, current_state: dict[str, Any], character_ids: list[str]) -> dict[str, Any]:
-    """Small active-character source pack for normal play turns.
-
-    This must stay compact because GPT Actions can fail when the response is too large.
-    The pack still contains real behavior/voice, but as focused excerpts, not full files.
-    """
+    """Compact active-character source pack. Uses runtime summaries, not full behavior/voice files."""
     result: dict[str, Any] = {}
     for character_id in character_ids:
         folder = character_folder(character_id)
         if not folder:
             continue
-        data = {
+
+        runtime_summary = safe_read_text(f"runtime/characters/{folder}.yaml", session_id, max_chars=RUNTIME_SUMMARY_CHARS)
+        card = safe_read_text(f"characters/{folder}/character_card.yaml", session_id, max_chars=650)
+
+        data: dict[str, Any] = {
             "character_id": character_id,
             "folder": folder,
-            "character_card": safe_read_text(f"characters/{folder}/character_card.yaml", session_id, max_chars=1200),
-            "appearance": safe_read_text(f"characters/{folder}/appearance.md", session_id, max_chars=900),
-            "behavior": safe_read_text(f"characters/{folder}/behavior.md", session_id, max_chars=2600),
-            "voice": safe_read_text(f"characters/{folder}/voice.md", session_id, max_chars=1800),
-            "knowledge_file": safe_read_text(f"characters/{folder}/knowledge.yaml", session_id, max_chars=1200),
+            "source": "runtime_summary",
+            "runtime_summary": runtime_summary,
+            "card_hint": card,
+            "use_rule": "Use runtime_summary as the primary behavior/voice source. Do not fetch full behavior.md or voice.md in normal play unless explicitly missing.",
         }
+
+        if not runtime_summary:
+            # Safe fallback: small extracts only, never full files.
+            data["source"] = "compact_fallback"
+            data["behavior_hint"] = safe_read_text(f"characters/{folder}/behavior.md", session_id, max_chars=900)
+            data["voice_hint"] = safe_read_text(f"characters/{folder}/voice.md", session_id, max_chars=700)
+
         if should_load_goals(current_state, character_id):
-            data["goals"] = safe_read_text(f"characters/{folder}/goals.yaml", session_id, max_chars=1200)
+            data["goals_hint"] = safe_read_text(f"characters/{folder}/goals.yaml", session_id, max_chars=700)
+
         if should_load_details(current_state, character_id):
-            data["energy"] = safe_read_text(f"characters/{folder}/energy.yaml", session_id, max_chars=900)
-            data["habits"] = safe_read_text(f"characters/{folder}/habits.md", session_id, max_chars=900)
-            data["past"] = safe_read_text(f"characters/{folder}/past.md", session_id, max_chars=1200)
+            data["detail_hint"] = {
+                "energy": safe_read_text(f"characters/{folder}/energy.yaml", session_id, max_chars=700),
+                "habits": safe_read_text(f"characters/{folder}/habits.md", session_id, max_chars=700),
+                "past": safe_read_text(f"characters/{folder}/past.md", session_id, max_chars=900),
+            }
+
         result[character_id] = data
     return result
 
@@ -531,7 +548,7 @@ def build_relationship_slice(session_id: str, scene_ids: list[str]) -> dict[str,
     for key, value in relationships.items():
         participants = relationship_participants(key, value)
         if len([cid for cid in participants if cid in scene_ids]) >= 2:
-            result[key] = value
+            result[key] = compact_value(value, max_depth=3, max_items=8, max_text=260)
     return result
 
 
@@ -542,7 +559,7 @@ def build_knowledge_slice(session_id: str, scene_ids: list[str]) -> dict[str, An
         character_knowledge = {}
 
     result: dict[str, Any] = {
-        cid: character_knowledge.get(cid, {})
+        cid: compact_value(character_knowledge.get(cid, {}), max_depth=3, max_items=8, max_text=260)
         for cid in scene_ids
         if isinstance(character_knowledge.get(cid, {}), dict)
     }
@@ -566,73 +583,41 @@ def build_knowledge_slice(session_id: str, scene_ids: list[str]) -> dict[str, An
                 + as_id_list(item.get("witnesses"))
             )
             if chars and any(cid in scene_ids for cid in chars):
-                focused_evidence.append(item)
-            if len(focused_evidence) >= 8:
+                focused_evidence.append(compact_value(item, max_depth=2, max_items=6, max_text=220))
+            if len(focused_evidence) >= 4:
                 break
         if focused_evidence:
             result["focused_evidence_log"] = focused_evidence
     return result
 
 
-def compact_list(value: Any, max_items: int = 4) -> list[Any]:
-    if not isinstance(value, list):
-        return []
-    return value[-max_items:]
-
-
-def compact_character_memory(value: dict[str, Any]) -> dict[str, Any]:
-    """Keep only memory that can affect the next scene."""
-    result: dict[str, Any] = {}
-    for key in ("character_id", "private_status", "behavior_next", "last_updated_scene_id", "updated_at"):
-        if key in value:
-            result[key] = value[key]
-
-    for key, max_items in (
-        ("seen_events", 4),
-        ("heard_events", 4),
-        ("beliefs", 6),
-        ("wrong_beliefs", 4),
-        ("promises_and_debts", 4),
-        ("scene_behavior_overrides", 4),
-    ):
-        items = compact_list(value.get(key), max_items)
-        if items:
-            result[key] = items
-
-    rels = value.get("relationships_from_this_character")
-    if isinstance(rels, dict):
-        result["relationships_from_this_character"] = {}
-        for other_id, rel in list(rels.items())[:8]:
-            if isinstance(rel, dict):
-                compact_rel = {
-                    k: rel.get(k)
-                    for k in (
-                        "trust",
-                        "tension",
-                        "affection",
-                        "respect",
-                        "curiosity",
-                        "jealousy",
-                        "resentment",
-                        "private_status",
-                        "behavior_next",
-                    )
-                    if k in rel
-                }
-                result["relationships_from_this_character"][other_id] = compact_rel
-
-    return result
-
-
 def build_character_memory_slice(session_id: str, scene_ids: list[str]) -> dict[str, Any]:
-    """Read compact personal runtime memory for current active/nearby characters."""
     result: dict[str, Any] = {}
     root = session_state_root(session_id) / "character_memory"
     for character_id in scene_ids:
         path = root / f"{character_id}.json"
         current = read_json(path, {})
         if isinstance(current, dict) and current:
-            result[character_id] = compact_character_memory(current)
+            result[character_id] = {
+                "character_id": current.get("character_id", character_id),
+                "seen_events": compact_text_list(current.get("seen_events"), max_items=4),
+                "heard_events": compact_text_list(current.get("heard_events"), max_items=4),
+                "beliefs": compact_value(current.get("beliefs", []), max_depth=2, max_items=5, max_text=220),
+                "wrong_beliefs": compact_value(current.get("wrong_beliefs", []), max_depth=2, max_items=4, max_text=220),
+                "relationships_from_this_character": compact_value(
+                    current.get("relationships_from_this_character", {}),
+                    max_depth=3,
+                    max_items=5,
+                    max_text=220,
+                ),
+                "scene_behavior_overrides": compact_value(
+                    current.get("scene_behavior_overrides", []),
+                    max_depth=2,
+                    max_items=3,
+                    max_text=220,
+                ),
+                "last_updated_scene_id": current.get("last_updated_scene_id"),
+            }
     return result
 
 
@@ -648,9 +633,11 @@ def build_open_threads_slice(session_id: str, scene_ids: list[str]) -> dict[str,
         if status in {"closed", "resolved", "archived"}:
             continue
         if participants and any(cid in scene_ids for cid in participants):
-            result[key] = value
-        elif not participants and len(result) < 8:
-            result[key] = value
+            result[key] = compact_value(value, max_depth=2, max_items=6, max_text=220)
+        elif not participants and len(result) < 3:
+            result[key] = compact_value(value, max_depth=2, max_items=6, max_text=220)
+        if len(result) >= 6:
+            break
     return result
 
 
@@ -668,8 +655,8 @@ def build_shared_incidents_slice(session_id: str, scene_ids: list[str]) -> dict[
         )
         status = value.get("status", "active_reference")
         if participants and any(cid in scene_ids for cid in participants) and status != "archived":
-            result[key] = value
-        if len(result) >= 10:
+            result[key] = compact_value(value, max_depth=2, max_items=6, max_text=220)
+        if len(result) >= 5:
             break
     return result
 
@@ -728,7 +715,7 @@ def slice_state_items(
     date_value: str | None,
     *,
     statuses: set[str] | None = None,
-    max_items: int = 12,
+    max_items: int = 5,
 ) -> dict[str, Any]:
     result: dict[str, Any] = {}
     for key, value in state.items():
@@ -742,9 +729,9 @@ def slice_state_items(
             continue
         related = item_related_to_scene(value, scene_ids, location_id, date_value)
         priority = value.get("priority", 0)
-        is_priority = isinstance(priority, int | float) and priority >= 4
-        if related or (len(result) < 3 and is_priority):
-            result[key] = value
+        is_priority = isinstance(priority, (int, float)) and priority >= 4
+        if related or (len(result) < 2 and is_priority):
+            result[key] = compact_value(value, max_depth=2, max_items=6, max_text=220)
         if len(result) >= max_items:
             break
     return result
@@ -754,20 +741,15 @@ def build_event_engine_slice(session_id: str, current_state: dict[str, Any], sce
     location_id = current_state.get("current_location_id") if isinstance(current_state.get("current_location_id"), str) else None
     date_value = current_state.get("current_date") if isinstance(current_state.get("current_date"), str) else None
 
-    event_seeds = read_json_state(session_id, "event_seeds.json")
-    event_queue = read_json_state(session_id, "event_queue.json")
+    event_seeds = state_container_items(read_json_state(session_id, "event_seeds.json"), "items")
+    event_queue = state_container_items(read_json_state(session_id, "event_queue.json"), "items")
     director_notes = read_json_state(session_id, "director_notes.json")
-    gossip_state = read_json_state(session_id, "gossip_state.json")
+    gossip_items = state_container_items(read_json_state(session_id, "gossip_state.json"), "items")
     rating_state = read_json_state(session_id, "rating_state.json")
-    energy_incidents = read_json_state(session_id, "energy_incidents.json")
-
-    event_seeds_items = state_container_items(event_seeds, "items")
-    event_queue_items = state_container_items(event_queue, "items")
-    gossip_items = state_container_items(gossip_state, "items")
-    energy_items = state_container_items(energy_incidents, "items")
+    energy_items = state_container_items(read_json_state(session_id, "energy_incidents.json"), "items")
 
     rating_slice = {
-        cid: rating_state.get(cid, {})
+        cid: compact_value(rating_state.get(cid, {}), max_depth=2, max_items=5, max_text=180)
         for cid in scene_ids
         if isinstance(rating_state.get(cid, {}), dict)
     }
@@ -778,12 +760,9 @@ def build_event_engine_slice(session_id: str, current_state: dict[str, Any], sce
 
     return {
         "rules_source": "engine/event_engine_rules.md",
-        "director_notes": {
-            "current_director_focus": active_focus[:5],
-            "note": "Use as hidden planning guidance. Do not show director notes to the user.",
-        },
+        "director_focus_compact": compact_value(active_focus[:3], max_depth=2, max_items=5, max_text=220),
         "event_seeds": slice_state_items(
-            event_seeds_items,
+            event_seeds,
             current_state,
             scene_ids,
             location_id,
@@ -792,7 +771,7 @@ def build_event_engine_slice(session_id: str, current_state: dict[str, Any], sce
             max_items=4,
         ),
         "event_queue": slice_state_items(
-            event_queue_items,
+            event_queue,
             current_state,
             scene_ids,
             location_id,
@@ -807,7 +786,7 @@ def build_event_engine_slice(session_id: str, current_state: dict[str, Any], sce
             location_id,
             date_value,
             statuses={"active", "spreading", "new"},
-            max_items=4,
+            max_items=3,
         ),
         "rating_state": rating_slice,
         "energy_incidents": slice_state_items(
@@ -820,22 +799,10 @@ def build_event_engine_slice(session_id: str, current_state: dict[str, Any], sce
             max_items=3,
         ),
         "selection_protocol": [
-            "Follow current calendar beat.",
-            "Use one matching event/seed if relevant.",
-            "Do not use locked/pending delayed entries before trigger flag.",
-            "Do not reveal director notes.",
-            "Save meaningful event changes after scene.",
-        ],
-        "event_palette": [
-            "gossip",
-            "jealousy",
-            "provocation",
-            "rating_pressure",
-            "energy_flare",
-            "social_attention",
-            "instructor_note",
-            "mistake_with_consequence",
-            "unexpected_character_entry",
+            "First follow the current calendar beat.",
+            "Choose one suitable queued event/seed only if it matches place, characters and pacing.",
+            "Do not use locked/pending delayed-character entries until trigger_after / requires_story_flag is satisfied.",
+            "After scene, save new seeds, queued events, gossip, rating or energy changes through applyTurnResultSimple.",
         ],
     }
 
@@ -873,7 +840,7 @@ def build_calendar_slice(session_id: str, current_state: dict[str, Any]) -> dict
     current_date = current_state.get("current_date")
 
     source_file = f"story/calendar/{calendar_id}.yaml"
-    calendar_text = safe_read_text(source_file, session_id, max_chars=50000)
+    calendar_text = safe_read_text(source_file, session_id, max_chars=35000)
     day_block = extract_calendar_day_block(
         calendar_text,
         current_day_id if isinstance(current_day_id, str) else None,
@@ -888,9 +855,9 @@ def build_calendar_slice(session_id: str, current_state: dict[str, Any]) -> dict
         "calendar_id": calendar_id,
         "current_day_id": current_day_id,
         "current_date": current_date,
-        "protocol": protocol,
-        "current_day_block": trim_text(day_block, 2600),
-        "selection_rule": "Use only this compact current_day_block for this turn.",
+        "protocol_compact": protocol,
+        "current_day_block": trim_text(day_block, 2500),
+        "selection_rule": "Use only current_day_block for this turn unless the player explicitly skips time or asks for calendar audit.",
     }
 
 
@@ -931,15 +898,13 @@ def format_weather_human(weather: Any) -> str:
     wind = weather.get("wind")
     precipitation = weather.get("precipitation")
     ground = weather.get("ground")
+
     if condition:
         parts.append(str(condition))
     if temp is not None:
         parts.append(f"{temp}°C")
     if wind:
-        wind_text = str(wind)
-        if "ветер" not in wind_text:
-            wind_text = f"{wind_text} ветер"
-        parts.append(wind_text)
+        parts.append(str(wind))
     if precipitation and precipitation not in {"нет", "none", "no"}:
         parts.append(str(precipitation))
     if ground and ground not in {"сухо", "сухая"}:
@@ -952,10 +917,12 @@ def format_pov_state_human(current_state: dict[str, Any]) -> str:
     status = {}
     if isinstance(current_state.get("character_status"), dict):
         status = current_state.get("character_status", {}).get(pov_id, {}) or {}
+
     bits: list[str] = []
     physical_state = status.get("physical_state")
     if physical_state:
         bits.append(str(physical_state))
+
     pain = status.get("pain")
     injuries = status.get("injuries")
     if pain:
@@ -964,15 +931,18 @@ def format_pov_state_human(current_state: dict[str, Any]) -> str:
         bits.append("травмы: " + ", ".join(str(item) for item in injuries))
     elif status.get("show_no_injuries") is True:
         bits.append("без травм")
+
     fatigue = status.get("fatigue")
-    if isinstance(fatigue, int | float) and fatigue > 0:
+    if isinstance(fatigue, (int, float)) and fatigue > 0:
         bits.append(f"усталость {fatigue}/10")
+
     clothing_state = status.get("clothing_state")
     hair_state = status.get("hair_state")
     if clothing_state:
         bits.append(str(clothing_state))
     if hair_state:
         bits.append(str(hair_state))
+
     return "; ".join(bits)
 
 
@@ -1001,7 +971,7 @@ def location_human(session_id: str | None, location_id: Any) -> dict[str, str]:
         return {"location_id": "", "display_name": "", "header_name": "", "short_name": "", "raw_card": ""}
     files = LOCATION_REQUIRED_FILES.get(location_id, [])
     card_path = files[0] if files else ""
-    text = safe_read_text(card_path, session_id, max_chars=2500) if card_path else ""
+    text = safe_read_text(card_path, session_id, max_chars=1200) if card_path else ""
     display = simple_yaml_value(text, "display_name") or location_id
     header = simple_yaml_value(text, "header_name") or display
     short = simple_yaml_value(text, "short_name") or display
@@ -1039,13 +1009,13 @@ def build_current_frame(current_state: dict[str, Any], session_id: str | None = 
         "day_id": current_state.get("current_day_id"),
         "weather": current_state.get("weather", {}),
         "pov_character_id": pov_id,
-        "pov_status": status,
+        "pov_status_compact": compact_value(status, max_depth=2, max_items=6, max_text=160),
         "active_character_ids": as_id_list(current_state.get("active_character_ids")),
         "nearby_character_ids": as_id_list(current_state.get("nearby_character_ids")),
         "mentioned_character_ids": as_id_list(current_state.get("mentioned_character_ids")),
         "scheduled_character_ids": as_id_list(current_state.get("scheduled_character_ids")),
         "delayed_character_ids": as_id_list(current_state.get("delayed_character_ids")),
-        "story_flags": current_state.get("story_flags", {}),
+        "story_flags": compact_value(current_state.get("story_flags", {}), max_depth=2, max_items=8, max_text=120),
         "header_values": {
             "date_human": date_human,
             "time_human": time_human,
@@ -1069,13 +1039,10 @@ def header_contract() -> dict[str, Any]:
             "🎒 При себе / рядом: {context_human}",
         ],
         "omit_empty_lines": True,
-        "max_lines": 6,
         "rules": [
             "Use scene_contract.current_frame.header_values.",
             "Keep the header in this emoji format.",
-            "Do not translate location names to English.",
             "If context_human is empty, omit the 🎒 line.",
-            "The 🎒 line must be short: important carried items, nearby people or important scene objects only.",
         ],
     }
 
@@ -1084,166 +1051,118 @@ def response_format_contract() -> dict[str, Any]:
     return {
         "priority": "highest_for_scene_output",
         "scene_header_required": True,
-        "header_contract": header_contract(),
         "meta_layer_forbidden": True,
-        "allowed_response_parts": [
-            "emoji header",
-            "scene body",
-            "choice block",
-            "speech options",
-            "POV thoughts block",
+        "dialogue_format": "**Имя или видимый дескриптор** — Реплика. (*короткая ремарка*)",
+        "description_format": "*Описание действия/окружения отдельной строкой курсивом.*",
+        "must_end_with": [
+            "Что можно сделать: 1/2/3",
+            "Что сказать: three quoted line options",
+            "Мысли Акиры: three short true POV thoughts",
         ],
-        "dialogue_format": "**Имя или видимый дескриптор** — Реплика. (*короткая ремарка: тон, взгляд, пауза, жест*)",
-        "description_format": "*Описание действия, окружения или атмосферы отдельной строкой курсивом.*",
-        "scene_body_rules": [
-            "Use visible POV only.",
-            "No assistant commentary before or after the scene.",
-            "No comments about saving, API, Actions, state or turn-contract in play response.",
-            "No direct inner thoughts in scene body.",
-            "NPC thoughts are not facts.",
-            "Known names only after POV knows them.",
-            "Descriptions and atmosphere go as separate italic paragraphs.",
-            "Dialogue uses bold speaker tag and long dash.",
+        "forbidden": [
+            "technical commentary",
+            "API/Actions/state/contract/debug mentions",
+            "Что делает Акира? instead of options",
+            "freeform title header",
         ],
-        "ending_block": [
-            "━━━━━━━━━━━━━━━━━━━━",
-            "Что можно сделать:",
-            "1.",
-            "2.",
-            "3.",
-            "",
-            "Что сказать:",
-            "— “...”",
-            "— “...”",
-            "— “...”",
-            "",
-            "Мысли Акиры:",
-            "— ...",
-            "— ...",
-            "— ...",
-            "━━━━━━━━━━━━━━━━━━━━",
-        ],
-        "self_check": "If the response is not in this format, rewrite it before sending.",
     }
 
 
 def scene_density_contract() -> dict[str, Any]:
     return {
         "target_scene_beats": "3-5",
-        "minimum_scene_units": "5-9 short paragraphs/units unless pure transition",
         "minimum_for_meaningful_scene": [
-            "environment or academy system in motion",
-            "visible POV observation, not passive empty standing",
-            "at least one active/nearby character-specific reaction, line, mistake, provocation or social move",
-            "one concrete change: knowledge, position, tension, schedule, access, reputation, body/clothing state or open thread",
-            "one event-engine element if fitting: gossip, rating, jealousy, provocation, energy flare, minor fight, instructor note or delayed character entry",
-            "stop at a real intervention point",
+            "environment/system in motion",
+            "visible POV observation",
+            "active/nearby character-specific reaction",
+            "concrete pressure/change",
+            "real intervention point",
         ],
-        "do_not_stop_after": [
-            "pure scenery setup",
-            "one vague question with no pressure",
-            "a decorative weather sentence only",
-            "procedural registration instruction",
+        "anti_null_scene": [
+            "Do not end with nothing happened / nobody noticed unless another concrete trace exists.",
+            "A careful action can reduce danger, not erase world reaction automatically.",
         ],
-        "allowed_short_scene": "Only for pure transition with no event; then summarize and move to nearest meaningful beat.",
     }
 
 
 def npc_autonomy_contract() -> dict[str, Any]:
     return {
-        "priority": "high",
-        "player_controls": [
-            "POV character actions",
-            "POV character direct speech",
-            "POV character attempts and choices",
-        ],
-        "player_does_not_control": [
-            "NPC decisions",
-            "NPC emotions",
-            "NPC obedience",
-            "NPC knowledge",
-            "NPC attraction, fear, trust or respect",
-            "world/system reactions",
-            "rumors, rating and staff conclusions",
-        ],
+        "player_controls": ["POV actions", "POV speech", "POV attempts"],
+        "player_does_not_control": ["NPC decisions", "NPC emotions", "NPC knowledge", "world/system reactions"],
         "rules": [
-            "NPCs act from their own goals, character, knowledge, relationships and current pressure.",
             "A player command to an NPC is an attempt, not a guaranteed result.",
             "A player thought is not world knowledge.",
-            "Do not make NPCs helpful, understanding or compliant by default.",
-            "Do not expose NPC inner thoughts as facts; show intent through visible behavior.",
+            "NPCs act from goals, character, knowledge, relationships and pressure.",
+            "Do not make NPCs helpful or compliant by default.",
         ],
     }
 
 
 def relationship_behavior_contract() -> dict[str, Any]:
     return {
-        "priority": "high",
-        "source": "scene_contract.relationship_slice + character_memory_slice",
+        "source": "relationship_slice + character_memory_slice",
         "levels": {
-            "trust": "Higher trust allows softer proximity, private hints, protection or honest warning. Low trust causes guarded, transactional, skeptical behavior.",
-            "tension": "Higher tension sharpens tone, interruptions, avoidance, boundary-testing and visible irritation.",
-            "respect": "Higher respect makes NPC take POV seriously even when disagreeing. Low respect creates dismissal or underestimation.",
-            "curiosity": "Higher curiosity makes NPC observe, test, ask or approach again.",
-            "jealousy": "Higher jealousy changes attention, competitiveness, social positioning and indirect remarks.",
-            "resentment": "Higher resentment makes NPC remember slights and use colder, harsher or more obstructive behavior.",
-            "affection": "Affection is not automatic romance. It can show as attention, warmth, protective irritation or desire to stay near.",
+            "trust": "Higher trust allows softer proximity/protection; low trust creates guarded behavior.",
+            "tension": "Sharpens tone, interruptions, avoidance, boundary-testing.",
+            "respect": "Makes NPC take POV seriously even when disagreeing.",
+            "curiosity": "Makes NPC observe, test, ask or approach again.",
+            "jealousy": "Changes social positioning and indirect remarks.",
+            "resentment": "Makes NPC remember slights and obstruct or cut colder.",
         },
-        "behavior_next_rule": "If a relationship or character_memory item has behavior_next, it must influence the next relevant scene unless current state prevents it.",
-        "evidence_rule": "Do not change relationship levels without visible evidence from the scene: line, action, refusal, protection, insult, risk, secret, debt, public embarrassment or trust signal.",
+        "behavior_next_rule": "behavior_next must influence the next relevant scene unless state prevents it.",
     }
 
 
 def memory_write_contract() -> dict[str, Any]:
     return {
-        "priority": "highest_after_meaningful_scene",
         "importance_levels": {
-            "critical": "Must save: identity reveal, promise/debt, injury, access/rule consequence, public reputation shift, relationship break/turn, secret seen/heard, strong conflict, major quote.",
-            "high": "Save: sharp line that changes tension/respect/curiosity, visible protection/refusal, new suspicion, wrong belief, recurring behavior pattern, event seed.",
-            "medium": "Save only if it may matter later: small tease, mild embarrassment, staff note, first impression, minor route/access detail.",
-            "low": "Do not save alone: routine movement, generic look, repeated banter, drinking water, standing in line, neutral observation.",
+            "critical": "Must save: identity reveal, promise/debt, injury, access consequence, reputation shift, relationship turn, secret, major quote.",
+            "high": "Save: sharp line changing tension/respect/curiosity, visible protection/refusal, suspicion, wrong belief, recurring pattern, seed.",
+            "medium": "Save only if likely to matter later.",
+            "low": "Do not save alone: routine movement, generic look, repeated banter, neutral observation.",
         },
         "spoken_line_rules": [
-            "Save exact quotes only when they changed relationship, reputation, knowledge, promise/debt, conflict, suspicion or future behavior.",
+            "Save exact quotes only when they change relationship, reputation, knowledge, promise/debt, conflict, suspicion or future behavior.",
             "Do not save every line.",
-            "Save who said it, who heard it, visible context and why it matters.",
-        ],
-        "after_scene_required_decision": [
-            "Did anyone learn or misunderstand something? -> knowledge_changes / character_memory_changes.",
-            "Did a relationship level or behavior_next change? -> relationship_changes and character_memory_changes.",
-            "Did an objective event matter? -> shared_incident_changes.",
-            "Did a future hook appear? -> open_thread_changes or event_seed_changes.",
-            "Did public attention change? -> gossip_changes / rating_changes / reputation-like state.",
-        ],
-        "do_not_save": [
-            "hidden lore not revealed in scene",
-            "NPC thoughts as fact",
-            "player intention that was not visible/heard",
-            "routine action with no future value",
         ],
     }
 
 
 def knowledge_write_contract() -> dict[str, Any]:
     return {
-        "priority": "high",
         "rules": [
             "Knowledge requires source: saw, heard, was told, read, inferred from visible facts, or misunderstood.",
             "Suspicion is not certainty; store certainty/source.",
-            "Wrong beliefs are allowed and should not auto-correct because the engine knows truth.",
-            "A player thought does not update NPC knowledge.",
+            "Player thought does not update NPC knowledge.",
             "Hidden lore is not character knowledge unless revealed in-scene with a source.",
         ],
-        "recommended_fields": [
-            "fact_id",
-            "text",
-            "source",
-            "certainty",
-            "seen_by",
-            "heard_by",
-            "known_by",
-            "wrong_belief",
-            "scene_id",
+    }
+
+
+def scene_assembly_gate_contract() -> dict[str, Any]:
+    return {
+        "status": "hard_gate",
+        "must_have": [
+            "current_state",
+            "scene_contract.current_frame.header_values",
+            "header_contract",
+            "response_format_contract",
+            "scene_density_contract",
+            "character_load_plan.full_character_ids",
+            "character_slice runtime summaries",
+            "relationship_slice",
+            "knowledge_slice",
+            "character_memory_slice",
+            "npc_autonomy_contract",
+            "relationship_behavior_contract",
+            "memory_write_contract",
+            "event_engine_slice",
+        ],
+        "failure_line": "Не удалось собрать scene assembly packet через Action. Без него я не продолжаю игровую сцену.",
+        "no_fallback": [
+            "Do not start from chat memory.",
+            "Do not say the contract is too large and then write a safe intro.",
+            "Do not expose API/debug/contract text.",
         ],
     }
 
@@ -1258,26 +1177,26 @@ def build_scene_contract(session_id: str, current_state: dict[str, Any], mode: s
     current_frame = build_current_frame(current_state, session_id)
 
     return {
-        "version": "scene_contract_v3_1_compact_packet",
+        "version": "scene_contract_v4_compact_runtime_summaries",
         "mode": mode,
+        "scene_assembly_gate": scene_assembly_gate_contract(),
         "current_frame": current_frame,
         "header_contract": header_contract(),
         "calendar_slice": build_calendar_slice(session_id, current_state),
         "arc_slice": {
             "source_file": arc_file,
-            "content": safe_read_text(arc_file, session_id, max_chars=1800),
+            "content": safe_read_text(arc_file, session_id, max_chars=1200),
         },
         "location_slice": {
             "location_id": location_id,
             "source_files": location_files,
-            "content": {path: safe_read_text(path, session_id, max_chars=1000) for path in location_files},
+            "content": {path: safe_read_text(path, session_id, max_chars=800) for path in location_files[:2]},
         },
         "character_load_plan": {
             "full_character_ids": selected["full"],
-            "reference_character_ids": selected["reference"],
-            "full_rule": "Full files are loaded only for POV/active/nearby characters.",
-            "reference_rule": "Mentioned/scheduled/delayed characters use light info unless they enter the scene.",
-            "active_character_file_rule": "For every full character, behavior.md and voice.md must be used. They are provided in character_slice for normal play turns.",
+            "reference_character_ids": selected["reference"][:6],
+            "full_rule": "Use compact runtime summaries from character_slice for POV/active/nearby characters.",
+            "reference_rule": "Mentioned/scheduled/delayed characters use runtime summaries only if they enter or matter.",
         },
         "character_slice": build_character_slice(session_id, current_state, selected["full"]),
         "character_memory_slice": build_character_memory_slice(session_id, scene_ids),
@@ -1293,15 +1212,11 @@ def build_scene_contract(session_id: str, current_state: dict[str, Any], mode: s
         "response_format_contract": response_format_contract(),
         "scene_density_contract": scene_density_contract(),
         "selection_rules": [
-            "Do not load every project file for a normal scene.",
-            "Use current calendar day only unless time skip/audit requires more.",
-            "Use character_slice behavior/voice for POV/active/nearby characters.",
-            "Use character_memory_slice for what current characters personally remember, believe or misunderstand.",
-            "Use relationship_slice and behavior_next to decide NPC tone, distance, resistance and initiative.",
+            "Use character_slice runtime_summary, not full behavior.md/voice.md, in normal play.",
+            "Use relationship_slice and behavior_next before NPC reactions.",
             "Use knowledge_slice before NPC claims.",
-            "Use light character info for mentioned/scheduled/delayed characters.",
-            "Use event_engine_slice to create interesting scene pressure between calendar points.",
-            "After the scene, save important memory by importance level, not every line.",
+            "Use event_engine_slice for pressure.",
+            "After scene, save important memory by importance level, not every line.",
         ],
     }
 
@@ -1316,7 +1231,7 @@ def root() -> dict[str, Any]:
     return {
         "status": "ok",
         "project": PROJECT_SLUG,
-        "version": "3.3.0",
+        "version": "3.4.0",
         "actions_schema": "/openapi-actions.json",
         "health": "/health",
         "debug_volume": "/debug/volume",
@@ -1325,7 +1240,7 @@ def root() -> dict[str, Any]:
 
 @app.get("/health")
 def health() -> dict[str, Any]:
-    return {"success": True, "project": PROJECT_SLUG, "version": "3.3.0", "time": utc_now()}
+    return {"success": True, "project": PROJECT_SLUG, "version": "3.4.0", "time": utc_now()}
 
 
 @app.get("/debug/volume")
@@ -1365,27 +1280,29 @@ def get_turn_contract(session_id: str, req: TurnContractRequest) -> dict[str, An
             except Exception as exc:
                 contents[path] = {"error": str(exc), "truncated": False, "chars": 0, "content": ""}
 
+    current_state_compact = compact_value(
+        current_state,
+        max_depth=3,
+        max_items=12,
+        max_text=260,
+    )
+
     return {
         "success": True,
         "session_id": sid,
         "mode": req.mode,
         "is_game_turn": req.mode == "play",
-        "current_state": current_state,
+        "current_state": current_state_compact,
         "scene_contract": scene_contract,
         "required_files": required_files,
         "required_file_contents": contents,
         "checks": [
-            "Novel director has top priority: write a living interactive scene, not a registration instruction.",
-            "Use scene_contract first; required_files are support, not the whole project.",
-            "Use character_slice behavior and voice for full characters before writing scene.",
-            "Use character_memory_slice to keep personal memory and wrong beliefs alive.",
-            "Use relationship_slice + relationship_behavior_contract to make relationships affect NPC behavior.",
-            "Use knowledge_slice before NPC claims; do not give NPC hidden lore.",
-            "Use event_engine_slice to create interesting events between calendar points.",
-            "Do not use locked/pending delayed-character entries before their trigger flag.",
-            "After a meaningful scene, save important events/quotes/knowledge/relationships through applyTurnResultSimple.",
-            "Do not save every line; save only future-relevant memory by importance level.",
-            "Obey response_format_contract and scene_density_contract.",
+            "Scene Assembly Gate is required before writing play scenes.",
+            "Use compact runtime character summaries from character_slice.",
+            "Do not fetch full behavior.md/voice.md in normal play unless summary missing.",
+            "Use character_memory_slice, relationship_slice and knowledge_slice before NPC reactions.",
+            "Do not continue from chat memory if Action/contract fails.",
+            "After meaningful scene, call applyTurnResultSimple and save important memory only.",
         ],
     }
 
@@ -1534,7 +1451,7 @@ def openapi_actions() -> dict[str, Any]:
     server = PUBLIC_BASE_URL or "https://your-service.up.railway.app"
     return {
         "openapi": "3.1.0",
-        "info": {"title": f"{PROJECT_SLUG} GPT Actions", "version": "3.3.0"},
+        "info": {"title": f"{PROJECT_SLUG} GPT Actions", "version": "3.4.0"},
         "servers": [{"url": server}],
         "paths": {
             "/health": {
