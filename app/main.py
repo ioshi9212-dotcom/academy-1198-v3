@@ -33,7 +33,7 @@ MAX_FILE_CHARS = int(os.getenv("MAX_FILE_CHARS", "18000"))
 MAX_SCENE_SLICE_CHARS = int(os.getenv("MAX_SCENE_SLICE_CHARS", "2200"))
 RUNTIME_SUMMARY_CHARS = int(os.getenv("RUNTIME_SUMMARY_CHARS", "1600"))
 
-app = FastAPI(title=f"{PROJECT_SLUG} GPT Actions API", version="3.4.2")
+app = FastAPI(title=f"{PROJECT_SLUG} GPT Actions API", version="3.4.3")
 
 RESERVED_SESSION_IDS = {"default", "new", "none", "null", "undefined", "session"}
 
@@ -575,6 +575,90 @@ def selected_character_ids(current_state: dict[str, Any]) -> dict[str, list[str]
     }
 
 
+
+CHARACTER_HEADER_LABELS = {
+    "char_akira": "Акира",
+    "char_livia": "Ливия",
+    "char_kir": "Кир",
+    "char_kiara": "Киара",
+    "char_haru": "Хару",
+    "char_raiden": "Райден",
+}
+
+
+def character_header_label(character_id: str) -> str:
+    return CHARACTER_HEADER_LABELS.get(character_id, character_id.replace("char_", ""))
+
+
+def detect_akira_variant_from_text(user_input: str | None) -> str | None:
+    text = (user_input or "").lower()
+    if not text:
+        return None
+    if any(token in text for token in ["версия 2", "v2", "version 2", "акира 2", "ядовит", "poison"]):
+        return "version_2_poisonous"
+    if any(token in text for token in ["версия 1", "v1", "version 1", "холодн", "cold"]):
+        return "version_1_cold"
+    return None
+
+
+def normalize_akira_variant(value: Any) -> str:
+    raw = str(value or "").lower().strip()
+    if raw in {"version_2_poisonous", "v2", "version_2", "chaotic_poisonous", "poisonous", "ядовитая", "ядовитый"}:
+        return "version_2_poisonous"
+    if raw in {"version_1_cold", "v1", "version_1", "cold_observing", "cold", "холодная"}:
+        return "version_1_cold"
+    return "version_1_cold"
+
+
+def get_akira_runtime_variant(current_state: dict[str, Any]) -> str:
+    status = {}
+    if isinstance(current_state.get("character_status"), dict):
+        status = current_state.get("character_status", {}).get("char_akira", {}) or {}
+    for key in ("runtime_variant", "behavior_version", "behavior_mask", "active_mask"):
+        if key in status:
+            return normalize_akira_variant(status.get(key))
+    story_flags = current_state.get("story_flags", {})
+    if isinstance(story_flags, dict):
+        for key in ("akira_runtime_variant", "akira_behavior_version", "akira_mask"):
+            if key in story_flags:
+                return normalize_akira_variant(story_flags.get(key))
+    return "version_1_cold"
+
+
+def apply_user_variant_selection(session_id: str, current_state: dict[str, Any], user_input: str | None) -> dict[str, Any]:
+    detected = detect_akira_variant_from_text(user_input)
+    if not detected:
+        return current_state
+    current_state.setdefault("character_status", {})
+    current_state["character_status"].setdefault("char_akira", {})
+    current_state["character_status"]["char_akira"]["runtime_variant"] = detected
+    current_state["character_status"]["char_akira"]["behavior_version"] = detected
+    current_state.setdefault("story_flags", {})
+    current_state["story_flags"]["akira_runtime_variant"] = detected
+    write_state(session_id, "current_state.json", current_state)
+    return current_state
+
+
+def runtime_character_file_for(character_id: str, current_state: dict[str, Any]) -> str | None:
+    folder = character_folder(character_id)
+    if not folder:
+        return None
+    if character_id == "char_akira":
+        variant = get_akira_runtime_variant(current_state)
+        if variant == "version_2_poisonous":
+            return "runtime/characters/akira_v2.yaml"
+        return "runtime/characters/akira_v1.yaml"
+    return f"runtime/characters/{folder}.yaml"
+
+
+def format_level_value(value: Any, label: str) -> str | None:
+    if isinstance(value, (int, float)) and value > 0:
+        return f"{label} {value}/10"
+    if isinstance(value, str) and value.strip():
+        return f"{label}: {value.strip()}"
+    return None
+
+
 def build_required_files(current_state: dict[str, Any], mode: str) -> list[str]:
     required_files = list(CORE_REQUIRED_FILES)
 
@@ -587,14 +671,14 @@ def build_required_files(current_state: dict[str, Any], mode: str) -> list[str]:
 
     selected = selected_character_ids(current_state)
     for cid in selected["full"]:
-        folder = character_folder(cid)
-        if folder:
-            required_files.append(f"runtime/characters/{folder}.yaml")
+        runtime_file = runtime_character_file_for(cid, current_state)
+        if runtime_file:
+            required_files.append(runtime_file)
 
     for cid in selected["reference"][:4]:
-        folder = character_folder(cid)
-        if folder:
-            required_files.append(f"runtime/characters/{folder}.yaml")
+        runtime_file = runtime_character_file_for(cid, current_state)
+        if runtime_file:
+            required_files.append(runtime_file)
 
     if mode in {"technical", "audit", "transfer"}:
         required_files.extend(TECHNICAL_EXTRA_FILES)
@@ -613,17 +697,23 @@ def build_character_slice(session_id: str, current_state: dict[str, Any], charac
         if not folder:
             continue
 
-        runtime_summary = safe_read_text(f"runtime/characters/{folder}.yaml", session_id, max_chars=RUNTIME_SUMMARY_CHARS)
+        runtime_file = runtime_character_file_for(character_id, current_state) or f"runtime/characters/{folder}.yaml"
+        runtime_summary = safe_read_text(runtime_file, session_id, max_chars=RUNTIME_SUMMARY_CHARS)
         card = safe_read_text(f"characters/{folder}/character_card.yaml", session_id, max_chars=650)
 
         data: dict[str, Any] = {
             "character_id": character_id,
             "folder": folder,
             "source": "runtime_summary",
+            "runtime_file": runtime_file,
             "runtime_summary": runtime_summary,
             "card_hint": card,
             "use_rule": "Use runtime_summary as the primary behavior/voice source. Do not fetch full behavior.md or voice.md in normal play unless explicitly missing.",
         }
+
+        if character_id == "char_akira":
+            data["selected_runtime_variant"] = get_akira_runtime_variant(current_state)
+            data["variant_rule"] = "Use ONLY the selected Akira runtime variant for face, smile, expression, tone and behavior. Do not mix version 1 and version 2."
 
         if not runtime_summary:
             # Safe fallback: small extracts only, never full files.
@@ -1032,50 +1122,76 @@ def format_pov_state_human(current_state: dict[str, Any]) -> str:
         status = current_state.get("character_status", {}).get(pov_id, {}) or {}
 
     bits: list[str] = []
+
     physical_state = status.get("physical_state")
     if physical_state:
         bits.append(str(physical_state))
 
     pain = status.get("pain")
     injuries = status.get("injuries")
-    if pain:
-        bits.append(f"боль: {pain}")
     if isinstance(injuries, list) and injuries:
         bits.append("травмы: " + ", ".join(str(item) for item in injuries))
-    elif status.get("show_no_injuries") is True:
-        bits.append("без травм")
+    if pain:
+        bits.append(f"боль: {pain}")
 
-    fatigue = status.get("fatigue")
-    if isinstance(fatigue, (int, float)) and fatigue > 0:
-        bits.append(f"усталость {fatigue}/10")
+    for key, label in (
+        ("fatigue", "усталость"),
+        ("hunger", "голод"),
+        ("thirst", "жажда"),
+        ("stress", "напряжение"),
+    ):
+        formatted = format_level_value(status.get(key), label)
+        if formatted:
+            bits.append(formatted)
 
-    clothing_state = status.get("clothing_state")
-    hair_state = status.get("hair_state")
-    if clothing_state:
-        bits.append(str(clothing_state))
-    if hair_state:
-        bits.append(str(hair_state))
+    notes = status.get("state_notes") or status.get("notes")
+    if isinstance(notes, list):
+        for note in notes[:2]:
+            if note:
+                bits.append(str(note))
+    elif isinstance(notes, str) and notes.strip():
+        bits.append(notes.strip())
 
-    return "; ".join(bits)
+    return "; ".join(unique([p for p in bits if p])) or "состояние рабочее"
 
 
 def format_context_human(current_state: dict[str, Any], location_text: str) -> str:
     pieces: list[str] = []
     scene_continuity = current_state.get("scene_continuity", {})
     visible_items = scene_continuity.get("visible_item_state") if isinstance(scene_continuity, dict) else {}
+
     if isinstance(visible_items, dict):
         for key, value in visible_items.items():
-            if value:
-                pieces.append(str(value) if not isinstance(value, bool) else str(key))
+            if not value:
+                continue
+            if isinstance(value, bool):
+                pieces.append(str(key))
+            else:
+                pieces.append(str(value))
+
+    pov_id = current_state.get("pov_character_id", "char_akira")
+    status = {}
+    if isinstance(current_state.get("character_status"), dict):
+        status = current_state.get("character_status", {}).get(pov_id, {}) or {}
+
+    clothing_state = status.get("clothing_state")
+    hair_state = status.get("hair_state")
+    if clothing_state:
+        pieces.append(str(clothing_state))
+    if hair_state:
+        pieces.append(str(hair_state))
+
     nearby = as_id_list(current_state.get("nearby_character_ids"))
     active = as_id_list(current_state.get("active_character_ids"))
     pov = current_state.get("pov_character_id")
     scene_people = [cid for cid in unique(active + nearby) if cid != pov]
     if scene_people:
-        pieces.extend([cid.replace("char_", "") for cid in scene_people])
+        pieces.extend([character_header_label(cid) for cid in scene_people])
+
     context_line = simple_yaml_value(location_text, "header_context")
     if context_line:
         pieces.append(context_line)
+
     return ", ".join(unique([p for p in pieces if p]))
 
 
@@ -1155,6 +1271,9 @@ def header_contract() -> dict[str, Any]:
         "rules": [
             "Use scene_contract.current_frame.header_values.",
             "Keep the header in this emoji format.",
+            "🫀 is physical/internal state only: fatigue, hunger, pain, stress, injuries, short notes.",
+            "🎒 is visible clothing/items/nearby objects: hoodie, jeans, bag, documents, phone, hair position, people nearby.",
+            "Do not write dry/wet unless it is scene-relevant.",
             "If context_human is empty, omit the 🎒 line.",
         ],
     }
@@ -1344,7 +1463,7 @@ def root() -> dict[str, Any]:
     return {
         "status": "ok",
         "project": PROJECT_SLUG,
-        "version": "3.4.2",
+        "version": "3.4.3",
         "actions_schema": "/openapi-actions.json",
         "health": "/health",
         "debug_volume": "/debug/volume",
@@ -1353,7 +1472,7 @@ def root() -> dict[str, Any]:
 
 @app.get("/health")
 def health() -> dict[str, Any]:
-    return {"success": True, "project": PROJECT_SLUG, "version": "3.4.2", "time": utc_now()}
+    return {"success": True, "project": PROJECT_SLUG, "version": "3.4.3", "time": utc_now()}
 
 
 @app.get("/debug/volume")
@@ -1387,6 +1506,7 @@ def get_turn_contract(session_id: str, req: TurnContractRequest) -> dict[str, An
     reject_reserved_session_id(session_id)
     sid, _ = ensure_session(session_id, reset=False)
     current_state = read_json_state(sid, "current_state.json")
+    current_state = apply_user_variant_selection(sid, current_state, req.user_input)
     required_files = build_required_files(current_state, req.mode)
     scene_contract = build_scene_contract(sid, current_state, req.mode)
 
@@ -1573,7 +1693,7 @@ def openapi_actions() -> dict[str, Any]:
     server = PUBLIC_BASE_URL or "https://your-service.up.railway.app"
     return {
         "openapi": "3.1.0",
-        "info": {"title": f"{PROJECT_SLUG} GPT Actions", "version": "3.4.2"},
+        "info": {"title": f"{PROJECT_SLUG} GPT Actions", "version": "3.4.3"},
         "servers": [{"url": server}],
         "paths": {
             "/health": {
