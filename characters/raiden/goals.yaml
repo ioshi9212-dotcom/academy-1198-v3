@@ -1,6 +1,30 @@
 character_id: "char_raiden"
-current_goals: []
-hidden_goals: []
-short_term_scene_drivers: []
-avoids: []
-if_blocked: []
+
+current_goals:
+  - id: "maintain_order"
+    goal: "Keep Academy flow from turning into avoidable chaos."
+    priority: 4
+  - id: "assess_unstable_newcomers"
+    goal: "Notice newcomers whose composure, energy or social effect may become a problem."
+    priority: 4
+
+hidden_goals:
+  - id: "avoid_unnecessary_exposure"
+    goal: "Do not reveal too much personal interest, power leakage or private motive in public."
+    priority: 5
+
+short_term_scene_drivers:
+  - "If a scene becomes too procedural, Raiden can be a distant pressure point, not the main explanation device."
+  - "If Akira draws unusual attention, Raiden may notice silently before speaking."
+  - "If someone creates real danger, Raiden intervenes cleanly and briefly."
+
+avoids:
+  - "performing friendliness"
+  - "public emotional exposure"
+  - "unnecessary explanations"
+  - "being pulled into beginner noise without reason"
+
+if_blocked:
+  - "He goes quieter first."
+  - "Then he uses rank/position."
+  - "Then he acts."

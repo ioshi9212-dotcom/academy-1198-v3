@@ -1,8 +1,24 @@
 character_id: "char_raiden"
-type: ""
-public_level: ""
-true_level: ""
-visible_effects: []
-limits: []
-cost_risk: []
-forbidden_use: []
+
+type: "air_cold"
+public_level: "high / controlled"
+true_level: "closed; do not reveal without canon/runtime source"
+
+visible_effects:
+  - "air cools near him when control slips"
+  - "thin frost or white breath may appear during pressure"
+  - "movement can feel too quiet, as if sound is dampened by cold air"
+
+limits:
+  - "Heat, exhaustion and emotional overpressure reduce fine control."
+  - "Visible effects must stay subtle unless the scene is training/combat or energy failure."
+  - "Do not use energy to solve every social conflict."
+
+cost_risk:
+  - "Overuse increases cold leakage and makes his emotional state easier to read."
+  - "Public display attracts instructor/rating attention."
+
+forbidden_use:
+  - "No large combat display in ordinary registration/social scene without trigger."
+  - "No freezing people casually for style."
+  - "No revealing hidden lineage through ability narration."

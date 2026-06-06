@@ -4,28 +4,37 @@
 
 Do not load the whole repository. Every turn has a limited file set.
 
-Always load:
+For normal play turns, the API must provide a compact `scene_contract` first. The model should use it before fetching extra files.
+
+Core support files for normal turns:
 
 - `MANCHESS_RULES.md`
 - `engine/turn_contract.md`
 - `engine/loading_policy.md`
+- `engine/source_priority.md`
 - `engine/current_frame_policy.md`
+- `engine/novel_director_core.md`
 - `engine/scene_generation_rules.md`
+- `engine/event_engine_rules.md`
 - `engine/pov_rules.md`
 - `engine/output_format.md`
+- `engine/memory_update_rules.md`
+- `story/pacing/no_filler_rules.md`
 - current runtime `current_state.json`
 - current runtime `recent_turns.md`
 - active calendar from `current_calendar_id`
 - current arc from `current_arc_id`
 - current location from `current_location_id`
 - `characters/characters_index.yaml`
+- `world/locations/locations_index.yaml`
 - `world/academy/academy_index.yaml`
+- `knowledge/knowledge_rules.md`
 
 Load conditionally:
 
 - current location detail files;
 - active character files;
-- scheduled delayed character files when their beat is due;
+- scheduled/delayed character files when their beat is due;
 - mentioned character card and knowledge;
 - focused relationships;
 - focused knowledge;

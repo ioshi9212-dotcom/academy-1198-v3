@@ -1,6 +1,22 @@
 character_id: "char_raiden"
-knows: []
+
+knows:
+  - id: "academy_structure_basic"
+    fact: "Раиден знает рабочую структуру Академии, порядок проверок, статус командного контура и последствия нарушений."
+    source: "role/public academy context"
+  - id: "first_day_flow_basic"
+    fact: "Раиден понимает, что первый день новичков создаёт шум, ошибки, первые рейтинговые следы и слухи."
+    source: "role/public academy context"
+
 suspects: []
 wrong_beliefs: []
-does_not_know: []
-forbidden_to_reveal: []
+
+does_not_know:
+  - "Не знает скрытую внутреннюю мысль Акиры без видимого признака."
+  - "Не знает приватные события runtime-сессии, если они не сохранены в focused knowledge/relationships/incidents."
+  - "Не знает пользовательские новые правки, если они ещё не внесены в текущий контракт/файлы."
+
+forbidden_to_reveal:
+  - "Любые скрытые семейные/энергетические связи без отдельного сценического основания."
+  - "Старый канон, если он конфликтует с academy-1198-v3 runtime state."
+  - "Информацию из hidden lore как публичное знание."
