@@ -1,9 +1,67 @@
 {
-  "schema": "knowledge_state_v1",
+  "schema": "knowledge_state_v2",
   "session_id": "{{SESSION_ID}}",
   "public_knowledge": {},
   "hidden_truths": {},
-  "character_knowledge": {},
-  "evidence_log": [],
-  "speaker_labels": {}
+  "character_knowledge": {
+    "char_livia": {
+      "facts": {
+        "knows_akira_old_friend": {
+          "text": "Ливия знает Акиру как близкую школьную подругу примерно шесть лет.",
+          "certainty": "confirmed",
+          "source": "pre_start_relationship",
+          "about": [
+            "char_akira"
+          ]
+        },
+        "knows_akira_coffee_and_boundaries": {
+          "text": "Ливия знает бытовые привычки Акиры: кофе без сахара, нелюбовь к лишнему давлению, привычку выбирать позицию с обзором и реакцию на попытки трогать волосы.",
+          "certainty": "high",
+          "source": "old_friendship",
+          "about": [
+            "char_akira"
+          ]
+        }
+      },
+      "suspicions": {},
+      "wrong_beliefs": {}
+    },
+    "char_akira": {
+      "facts": {
+        "knows_livia_old_friend": {
+          "text": "Акира знает Ливию как близкую школьную подругу примерно шесть лет.",
+          "certainty": "confirmed",
+          "source": "pre_start_relationship",
+          "about": [
+            "char_livia"
+          ]
+        },
+        "knows_livia_social_mask": {
+          "text": "Акира знает, что Ливия часто шумит, шутит или флиртует, когда нервничает или пытается вернуть контроль.",
+          "certainty": "high",
+          "source": "old_friendship",
+          "about": [
+            "char_livia"
+          ]
+        }
+      },
+      "suspicions": {},
+      "wrong_beliefs": {}
+    }
+  },
+  "evidence_log": [
+    {
+      "fact_id": "pre_start_akira_livia_friendship",
+      "source_scene_id": "pre_start_backstory",
+      "who_knows": [
+        "char_akira",
+        "char_livia"
+      ],
+      "evidence": "Initial canon: Akira and Livia are old close friends before Academy start."
+    }
+  ],
+  "speaker_labels": {
+    "char_akira": "Акира",
+    "char_livia": "Ливия"
+  }
 }

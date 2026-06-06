@@ -2,14 +2,30 @@ id: ""
 title: ""
 date: ""
 time: ""
+day_id: ""
 location_id: ""
+
+importance: "low|medium|high|critical"
+
 participants:
   present: []
   witnessed: []
   heard_about_later: []
+
 visible_facts: []
-spoken_lines: []
+
+spoken_lines:
+  - speaker: ""
+    text: ""
+    heard_by: []
+    importance: "medium"
+    effect: ""
+    tags: []
+
 physical_actions: []
+
 knowledge_changes: []
 relationship_changes: []
+consequences: []
+
 status: "active_reference"

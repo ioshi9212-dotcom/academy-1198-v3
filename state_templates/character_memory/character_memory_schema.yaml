@@ -1,4 +1,4 @@
-schema: character_memory_v1
+schema: character_memory_v2
 character_id: ""
 
 seen_events:
@@ -8,6 +8,7 @@ seen_events:
     incident_id: ""
     summary: ""
     certainty: "seen_directly"
+    importance: "low|medium|high|critical"
 
 heard_events:
   - date: ""
@@ -16,6 +17,15 @@ heard_events:
     incident_id: ""
     summary: ""
     certainty: "heard_directly"
+    importance: "low|medium|high|critical"
+
+remembered_lines:
+  - scene_id: ""
+    speaker: ""
+    text: ""
+    heard_by: []
+    importance: "medium"
+    effect: ""
 
 beliefs:
   - fact_id: ""
@@ -27,6 +37,13 @@ wrong_beliefs:
   - fact_id: ""
     text: ""
     source: ""
+
+relationship_notes:
+  char_example:
+    - scene_id: ""
+      summary: ""
+      evidence: ""
+      importance: "medium"
 
 promises_and_debts:
   - thread_id: ""
