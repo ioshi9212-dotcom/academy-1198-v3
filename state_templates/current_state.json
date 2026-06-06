@@ -3,7 +3,6 @@
   "project": "academy-1198-v3",
   "session_id": "{{SESSION_ID}}",
   "created_at": "{{CREATED_AT}}",
-
   "current_year": "1198",
   "current_calendar_id": "academy_start",
   "current_date": "1198-08-15",
@@ -11,49 +10,55 @@
   "current_day_id": "academy_day_001",
   "current_time": "08:40",
   "time_of_day": "morning",
-
   "current_location_id": "loc_academy_main",
   "current_arc_id": "arc_001_academy_start",
   "current_scene_id": null,
-
   "weather": {
     "condition": "переменная облачность",
     "temperature_c": 22,
-    "wind": "лёгкий",
+    "wind": "лёгкий ветер",
     "precipitation": "нет",
     "ground": "сухо",
     "visibility": "нормальная"
   },
-
   "pov_character_id": "char_akira",
-  "active_character_ids": ["char_akira", "char_livia"],
+  "active_character_ids": [
+    "char_akira",
+    "char_livia"
+  ],
   "nearby_character_ids": [],
   "mentioned_character_ids": [],
   "scheduled_character_ids": [],
-  "delayed_character_ids": ["char_kir", "char_kiara"],
-
+  "delayed_character_ids": [
+    "char_kir",
+    "char_kiara"
+  ],
   "character_status": {
     "char_akira": {
       "physical_state": "собрана",
+      "runtime_variant": "version_1_cold",
+      "behavior_version": "version_1_cold",
       "pain": {},
       "injuries": [],
       "fatigue": 0,
       "hunger": 0,
       "thirst": 0,
-      "wetness": 0,
-      "clothing_state": "сухая обычная одежда новичка",
-      "hair_state": "сухие очень длинные белые волосы",
+      "stress": 0,
+      "clothing_state": "толстовка, джинсы",
+      "hair_state": "волосы распущены",
       "appearance_changes": [],
-      "notes": []
+      "state_notes": []
     }
   },
-
   "scene_continuity": {
-    "visible_item_state": {},
+    "visible_item_state": {
+      "bag": "сумка с одеждой",
+      "documents": "документы",
+      "phone": "телефон"
+    },
     "environmental_effects": [],
     "pending_consequences": []
   },
-
   "story_flags": {},
   "last_time_advance": null
 }
