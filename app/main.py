@@ -486,7 +486,11 @@ def build_required_files(current_state: dict[str, Any], mode: str) -> list[str]:
 
 
 def build_character_slice(session_id: str, current_state: dict[str, Any], character_ids: list[str]) -> dict[str, Any]:
-    """Compact but real active-character source pack for normal play turns."""
+    """Small active-character source pack for normal play turns.
+
+    This must stay compact because GPT Actions can fail when the response is too large.
+    The pack still contains real behavior/voice, but as focused excerpts, not full files.
+    """
     result: dict[str, Any] = {}
     for character_id in character_ids:
         folder = character_folder(character_id)
@@ -495,19 +499,18 @@ def build_character_slice(session_id: str, current_state: dict[str, Any], charac
         data = {
             "character_id": character_id,
             "folder": folder,
-            "character_card": safe_read_text(f"characters/{folder}/character_card.yaml", session_id, max_chars=3500),
-            "appearance": safe_read_text(f"characters/{folder}/appearance.md", session_id, max_chars=2500),
-            "behavior": safe_read_text(f"characters/{folder}/behavior.md", session_id, max_chars=6000),
-            "voice": safe_read_text(f"characters/{folder}/voice.md", session_id, max_chars=4500),
-            "knowledge_file": safe_read_text(f"characters/{folder}/knowledge.yaml", session_id, max_chars=3500),
-            "links": safe_read_text(f"characters/{folder}/links.yaml", session_id, max_chars=2500),
+            "character_card": safe_read_text(f"characters/{folder}/character_card.yaml", session_id, max_chars=1200),
+            "appearance": safe_read_text(f"characters/{folder}/appearance.md", session_id, max_chars=900),
+            "behavior": safe_read_text(f"characters/{folder}/behavior.md", session_id, max_chars=2600),
+            "voice": safe_read_text(f"characters/{folder}/voice.md", session_id, max_chars=1800),
+            "knowledge_file": safe_read_text(f"characters/{folder}/knowledge.yaml", session_id, max_chars=1200),
         }
         if should_load_goals(current_state, character_id):
-            data["goals"] = safe_read_text(f"characters/{folder}/goals.yaml", session_id, max_chars=3500)
+            data["goals"] = safe_read_text(f"characters/{folder}/goals.yaml", session_id, max_chars=1200)
         if should_load_details(current_state, character_id):
-            data["energy"] = safe_read_text(f"characters/{folder}/energy.yaml", session_id, max_chars=2500)
-            data["habits"] = safe_read_text(f"characters/{folder}/habits.md", session_id, max_chars=2500)
-            data["past"] = safe_read_text(f"characters/{folder}/past.md", session_id, max_chars=3500)
+            data["energy"] = safe_read_text(f"characters/{folder}/energy.yaml", session_id, max_chars=900)
+            data["habits"] = safe_read_text(f"characters/{folder}/habits.md", session_id, max_chars=900)
+            data["past"] = safe_read_text(f"characters/{folder}/past.md", session_id, max_chars=1200)
         result[character_id] = data
     return result
 
@@ -571,15 +574,65 @@ def build_knowledge_slice(session_id: str, scene_ids: list[str]) -> dict[str, An
     return result
 
 
+def compact_list(value: Any, max_items: int = 4) -> list[Any]:
+    if not isinstance(value, list):
+        return []
+    return value[-max_items:]
+
+
+def compact_character_memory(value: dict[str, Any]) -> dict[str, Any]:
+    """Keep only memory that can affect the next scene."""
+    result: dict[str, Any] = {}
+    for key in ("character_id", "private_status", "behavior_next", "last_updated_scene_id", "updated_at"):
+        if key in value:
+            result[key] = value[key]
+
+    for key, max_items in (
+        ("seen_events", 4),
+        ("heard_events", 4),
+        ("beliefs", 6),
+        ("wrong_beliefs", 4),
+        ("promises_and_debts", 4),
+        ("scene_behavior_overrides", 4),
+    ):
+        items = compact_list(value.get(key), max_items)
+        if items:
+            result[key] = items
+
+    rels = value.get("relationships_from_this_character")
+    if isinstance(rels, dict):
+        result["relationships_from_this_character"] = {}
+        for other_id, rel in list(rels.items())[:8]:
+            if isinstance(rel, dict):
+                compact_rel = {
+                    k: rel.get(k)
+                    for k in (
+                        "trust",
+                        "tension",
+                        "affection",
+                        "respect",
+                        "curiosity",
+                        "jealousy",
+                        "resentment",
+                        "private_status",
+                        "behavior_next",
+                    )
+                    if k in rel
+                }
+                result["relationships_from_this_character"][other_id] = compact_rel
+
+    return result
+
+
 def build_character_memory_slice(session_id: str, scene_ids: list[str]) -> dict[str, Any]:
-    """Read personal runtime memory for current active/nearby characters."""
+    """Read compact personal runtime memory for current active/nearby characters."""
     result: dict[str, Any] = {}
     root = session_state_root(session_id) / "character_memory"
     for character_id in scene_ids:
         path = root / f"{character_id}.json"
         current = read_json(path, {})
         if isinstance(current, dict) and current:
-            result[character_id] = current
+            result[character_id] = compact_character_memory(current)
     return result
 
 
@@ -736,7 +789,7 @@ def build_event_engine_slice(session_id: str, current_state: dict[str, Any], sce
             location_id,
             date_value,
             statuses={"seeded", "active", "maturing"},
-            max_items=10,
+            max_items=4,
         ),
         "event_queue": slice_state_items(
             event_queue_items,
@@ -745,7 +798,7 @@ def build_event_engine_slice(session_id: str, current_state: dict[str, Any], sce
             location_id,
             date_value,
             statuses={"ready", "active"},
-            max_items=10,
+            max_items=4,
         ),
         "gossip_state": slice_state_items(
             gossip_items,
@@ -754,7 +807,7 @@ def build_event_engine_slice(session_id: str, current_state: dict[str, Any], sce
             location_id,
             date_value,
             statuses={"active", "spreading", "new"},
-            max_items=10,
+            max_items=4,
         ),
         "rating_state": rating_slice,
         "energy_incidents": slice_state_items(
@@ -764,15 +817,14 @@ def build_event_engine_slice(session_id: str, current_state: dict[str, Any], sce
             location_id,
             date_value,
             statuses={"active", "pending", "recent", "resolved_scene_hook"},
-            max_items=8,
+            max_items=3,
         ),
         "selection_protocol": [
-            "First follow the current calendar beat.",
-            "Then choose one suitable queued event or seed if it matches current place, characters and pacing.",
-            "Do not use locked or pending delayed-character entries until their trigger_after / requires_story_flag is satisfied.",
-            "If no suitable event exists, create one small seed from visible scene behavior.",
-            "Do not reveal director notes to the user.",
-            "After scene, save new seeds, queued events, gossip, rating or energy incident changes through applyTurnResultSimple.",
+            "Follow current calendar beat.",
+            "Use one matching event/seed if relevant.",
+            "Do not use locked/pending delayed entries before trigger flag.",
+            "Do not reveal director notes.",
+            "Save meaningful event changes after scene.",
         ],
         "event_palette": [
             "gossip",
@@ -780,12 +832,10 @@ def build_event_engine_slice(session_id: str, current_state: dict[str, Any], sce
             "provocation",
             "rating_pressure",
             "energy_flare",
-            "minor_fight",
             "social_attention",
             "instructor_note",
             "mistake_with_consequence",
             "unexpected_character_entry",
-            "quiet_observation_that_later_matters",
         ],
     }
 
@@ -831,7 +881,7 @@ def build_calendar_slice(session_id: str, current_state: dict[str, Any]) -> dict
     )
     protocol = ""
     if "calendar_reading_protocol:" in calendar_text:
-        protocol = trim_text(calendar_text.split("\ndays:", 1)[0], 2500)
+        protocol = trim_text(calendar_text.split("\ndays:", 1)[0], 900)
 
     return {
         "source_file": source_file,
@@ -839,8 +889,8 @@ def build_calendar_slice(session_id: str, current_state: dict[str, Any]) -> dict
         "current_day_id": current_day_id,
         "current_date": current_date,
         "protocol": protocol,
-        "current_day_block": trim_text(day_block, 6000),
-        "selection_rule": "Use only current_day_block for this turn unless the player explicitly skips time or asks for calendar audit.",
+        "current_day_block": trim_text(day_block, 2600),
+        "selection_rule": "Use only this compact current_day_block for this turn.",
     }
 
 
@@ -1208,19 +1258,19 @@ def build_scene_contract(session_id: str, current_state: dict[str, Any], mode: s
     current_frame = build_current_frame(current_state, session_id)
 
     return {
-        "version": "scene_contract_v3_character_memory_relationship_runtime",
+        "version": "scene_contract_v3_1_compact_packet",
         "mode": mode,
         "current_frame": current_frame,
         "header_contract": header_contract(),
         "calendar_slice": build_calendar_slice(session_id, current_state),
         "arc_slice": {
             "source_file": arc_file,
-            "content": safe_read_text(arc_file, session_id, max_chars=5000),
+            "content": safe_read_text(arc_file, session_id, max_chars=1800),
         },
         "location_slice": {
             "location_id": location_id,
             "source_files": location_files,
-            "content": {path: safe_read_text(path, session_id, max_chars=2500) for path in location_files},
+            "content": {path: safe_read_text(path, session_id, max_chars=1000) for path in location_files},
         },
         "character_load_plan": {
             "full_character_ids": selected["full"],
