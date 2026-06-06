@@ -33,7 +33,7 @@ MAX_FILE_CHARS = int(os.getenv("MAX_FILE_CHARS", "18000"))
 MAX_SCENE_SLICE_CHARS = int(os.getenv("MAX_SCENE_SLICE_CHARS", "2200"))
 RUNTIME_SUMMARY_CHARS = int(os.getenv("RUNTIME_SUMMARY_CHARS", "1600"))
 
-app = FastAPI(title=f"{PROJECT_SLUG} GPT Actions API", version="3.4.5")
+app = FastAPI(title=f"{PROJECT_SLUG} GPT Actions API", version="3.4.7")
 
 RESERVED_SESSION_IDS = {"default", "new", "none", "null", "undefined", "session"}
 
@@ -140,6 +140,8 @@ CORE_REQUIRED_FILES = [
     "engine/runtime_character_slice_rules.md",
     "engine/scene_assembly_gate.md",
     "engine/scene_quality_gate.md",
+    "engine/scene_progress_rules.md",
+    "engine/prose_style_rules.md",
     "engine/energy_atmosphere_rules.md",
     "story/pacing/no_filler_rules.md",
     "state/current_state.json",
@@ -1319,6 +1321,7 @@ def scene_density_contract() -> dict[str, Any]:
             "active/nearby character-specific reaction or direct line",
             "concrete pressure/change",
             "world advances even if POV acts calmly",
+            "no micro-action endings; continue to next meaningful choice",
             "real intervention point",
         ],
         "anti_null_scene": [
@@ -1327,6 +1330,80 @@ def scene_density_contract() -> dict[str, Any]:
         ],
     }
 
+
+
+
+
+def prose_style_contract() -> dict[str, Any]:
+    return {
+        "priority": "hard_style_gate",
+        "core_rule": "Write clear factual scene prose, not decorative literary prose.",
+        "style": [
+            "short concrete sentences",
+            "visible facts and physical consequences",
+            "specific actions instead of abstract mood",
+            "energy effects described as measurable physical traces",
+            "NPC reactions through action/tone/look, not lyrical comparison",
+        ],
+        "avoid": [
+            "poetic contrast descriptions",
+            "decorative metaphors",
+            "cinematic filler",
+            "abstract atmosphere without consequence",
+            "overexplaining what is already visible",
+            "phrases like 'контрастируя с серостью коридора'",
+            "phrases like 'словно сама сцена подстроилась'",
+        ],
+        "rewrite_examples": [
+            {
+                "bad": "Белые волосы отражают холодный свет панели, контрастируя с серостью коридора.",
+                "good": "Белые волосы заметны в холодном свете панели.",
+            },
+            {
+                "bad": "Воздух будто задержал дыхание.",
+                "good": "Шум очереди стал тише на секунду.",
+            },
+            {
+                "bad": "Система словно решила присмотреться к ней внимательнее.",
+                "good": "На панели появилась серая пометка. Сотрудница задержала взгляд на браслете.",
+            },
+        ],
+        "allowed_detail": "Descriptive detail is allowed only if it shows fact, pressure, physical state, energy trace, social reaction or consequence.",
+    }
+
+
+def scene_progress_contract() -> dict[str, Any]:
+    return {
+        "priority": "hard_scene_pacing_gate",
+        "core_rule": "Do not stop on micro-actions. If the next step is obvious, narrate it and continue until a real decision/intervention point.",
+        "micro_choices_forbidden": [
+            "press a machine button",
+            "wait for instructions",
+            "look at the screen",
+            "take a card",
+            "walk to a nearby obvious point",
+            "continue observing",
+            "stand calmly",
+            "repeat the same check with no new pressure",
+        ],
+        "real_choice_required": [
+            "answer / stay silent when someone pressures POV",
+            "obey official route / challenge / bypass / provoke",
+            "hide energy / show controlled trace / risk a stronger move",
+            "protect Livia / let her handle it / cut her off",
+            "follow schedule / delay for information / exploit a mistake",
+            "choose social position: sit, leave, approach, avoid, listen, confront",
+        ],
+        "auto_advance_rules": [
+            "If user chooses an obvious transition, complete the transition and continue to the next meaningful pressure.",
+            "If it is logical to get coffee, do not stop at the vending machine unless coffee itself creates pressure; take coffee and move to the social beat.",
+            "If it is logical to pass registration, do not stop at 'wait for instructions'; give result, consequence, next route, and stop at the next real intervention.",
+            "If nothing meaningful can happen in the current spot, summarize movement briefly and jump to the next scheduled/pressured beat.",
+            "A calm/passive player action should still let the world advance.",
+        ],
+        "no_player_speech_without_input": "Do not write a direct Akira line unless the user gave it, or it is only an option in 'Что сказать'. Narration may describe her visible reaction.",
+        "ending_rule": "End only when the player has a real decision, real reply, real risk, or real relationship/social consequence to choose.",
+    }
 
 
 def scene_quality_gate_contract() -> dict[str, Any]:
@@ -1349,6 +1426,7 @@ def scene_quality_gate_contract() -> dict[str, Any]:
             "At least one concrete pressure must change or press forward.",
             "Include at least one small ambient energy carrier detail unless scene location/state forbids it.",
             "If player action is passive, the world still advances: queue moves, staff calls, someone notices, route changes, rumor/attention starts.",
+            "Do not stop at micro-actions; continue until a real choice/reply/risk exists.",
             "Choices must be in Akira's selected variant voice, not polite generic UI.",
             "Thoughts must be Akira's real tactical/poisonous thoughts, not author summary.",
         ],
@@ -1551,12 +1629,16 @@ def build_scene_contract(session_id: str, current_state: dict[str, Any], mode: s
         "response_format_contract": response_format_contract(),
         "scene_density_contract": scene_density_contract(),
         "scene_quality_gate_contract": scene_quality_gate_contract(),
+        "scene_progress_contract": scene_progress_contract(),
+        "prose_style_contract": prose_style_contract(),
         "selection_rules": [
             "Use character_slice runtime_summary, not full behavior.md/voice.md, in normal play.",
             "Use relationship_slice and behavior_next before NPC reactions.",
             "Use knowledge_slice before NPC claims.",
             "Use event_engine_slice for pressure.",
             "Use energy_atmosphere_slice to keep Academy scenes visibly populated by energy carriers.",
+            "Use scene_progress_contract: do not stop on micro-actions; advance to a real choice.",
+            "Use prose_style_contract: clear facts, less decorative prose.",
             "After scene, save important memory by importance level, not every line.",
         ],
     }
@@ -1572,7 +1654,7 @@ def root() -> dict[str, Any]:
     return {
         "status": "ok",
         "project": PROJECT_SLUG,
-        "version": "3.4.5",
+        "version": "3.4.7",
         "actions_schema": "/openapi-actions.json",
         "health": "/health",
         "debug_volume": "/debug/volume",
@@ -1581,7 +1663,7 @@ def root() -> dict[str, Any]:
 
 @app.get("/health")
 def health() -> dict[str, Any]:
-    return {"success": True, "project": PROJECT_SLUG, "version": "3.4.5", "time": utc_now()}
+    return {"success": True, "project": PROJECT_SLUG, "version": "3.4.7", "time": utc_now()}
 
 
 @app.get("/debug/volume")
@@ -1652,6 +1734,8 @@ def get_turn_contract(session_id: str, req: TurnContractRequest) -> dict[str, An
             "After meaningful scene, call applyTurnResultSimple and save important memory only.",
             "Scene Quality Gate: no intermediate loading messages, no empty header, real pressure required.",
             "Energy atmosphere: Academy is for energy carriers; include small visible energy background detail.",
+            "Scene Progress Gate: do not end on micro-actions; advance to real choice/reply/risk.",
+            "Prose Style Gate: less artistic language; write clear physical facts and consequences.",
             "Scene Quality Gate: no fast stub, no empty header, no technical preface, real pressure required.",
         ],
     }
@@ -1805,7 +1889,7 @@ def openapi_actions() -> dict[str, Any]:
     server = PUBLIC_BASE_URL or "https://your-service.up.railway.app"
     return {
         "openapi": "3.1.0",
-        "info": {"title": f"{PROJECT_SLUG} GPT Actions", "version": "3.4.5"},
+        "info": {"title": f"{PROJECT_SLUG} GPT Actions", "version": "3.4.7"},
         "servers": [{"url": server}],
         "paths": {
             "/health": {
