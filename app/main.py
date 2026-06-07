@@ -33,7 +33,7 @@ MAX_FILE_CHARS = int(os.getenv("MAX_FILE_CHARS", "18000"))
 MAX_SCENE_SLICE_CHARS = int(os.getenv("MAX_SCENE_SLICE_CHARS", "2200"))
 RUNTIME_SUMMARY_CHARS = int(os.getenv("RUNTIME_SUMMARY_CHARS", "1250"))
 
-app = FastAPI(title=f"{PROJECT_SLUG} GPT Actions API", version="3.4.10")
+app = FastAPI(title=f"{PROJECT_SLUG} GPT Actions API", version="3.5.0")
 
 RESERVED_SESSION_IDS = {"default", "new", "none", "null", "undefined", "session"}
 
@@ -134,6 +134,7 @@ CORE_REQUIRED_FILES = [
     "engine/novel_director_core.md",
     "engine/output_format.md",
     "engine/markdown_dialogue_format_rules.md",
+    "engine/voice_fit_gate_rules.md",
     "engine/scene_generation_rules.md",
     "engine/event_engine_rules.md",
     "engine/pov_rules.md",
@@ -875,6 +876,7 @@ def compact_scene_contract_for_tool(contract: dict[str, Any]) -> dict[str, Any]:
             "Что сказать options are Akira's possible direct lines, short and in selected voice",
             "Мысли Акиры are first-person or clipped POV thoughts, not third-person summaries",
         ],
+        "voice_gate": "Before sending, check every line against speaker runtime_summary and selected_runtime_variant. Rewrite neutral/generic lines.",
         "forbidden": [
             "technical text",
             "empty header",
@@ -909,7 +911,7 @@ def compact_scene_contract_for_tool(contract: dict[str, Any]) -> dict[str, Any]:
             "world moves even if Akira is calm",
             "choices tied to current pressure",
         ],
-        "rewrite_if": ["too short", "generic", "only observing", "no NPC reaction", "no real choice"],
+        "rewrite_if": ["too short", "generic", "only observing", "no NPC reaction", "no real choice", "speech options do not match selected POV voice", "NPC lines sound generic"],
     }
     result["scene_progress_contract"] = {
         "rule": "Do not stop on micro-actions; auto-advance to real choice/reply/risk.",
@@ -929,11 +931,63 @@ def compact_scene_contract_for_tool(contract: dict[str, Any]) -> dict[str, Any]:
     result["memory_write_contract"] = {
         "rule": "Save important events/quotes/knowledge/relationship/energy only; not full dialogue.",
     }
+    result["pov_voice_gate_contract"] = {
+        "priority": "hard_voice_gate",
+        "core_rule": "Every spoken line and every 'Что сказать' option must match the speaker runtime_summary and selected_runtime_variant.",
+        "akira_v2_rule": {
+            "variant": "version_2_poisonous",
+            "must_be": [
+                "short",
+                "lazy or calm on surface",
+                "poisonous / cutting / socially dangerous",
+                "shows control, threat, irritation, or precise evaluation",
+                "no extra explanations",
+            ],
+            "forbidden": [
+                "neutral teen everyday phrasing",
+                "soft polite default",
+                "long explanation",
+                "generic curiosity without edge",
+                "phrases like 'ладно, но не мешай мне думать'",
+                "phrases like 'ты всегда так шутить умеешь'",
+                "phrases like 'интересно, что они ловят' unless it sounds like a threat or mockery",
+            ],
+            "rewrite_test": "If the line could belong to a generic calm heroine, rewrite it as Akira v2.",
+            "good_examples": [
+                "Ливия, не дёргай. Я ещё решаю, кто здесь первый идиот.",
+                "Датчики нервничают. Милое начало.",
+                "Не шуми так радостно. Они ещё решат, что мы дружелюбные.",
+                "Пусть смотрят. Быстрее поймут, куда не лезть.",
+            ],
+        },
+        "livia_rule": {
+            "must_be": [
+                "alive, fast, socially active",
+                "teasing, noisy, protective or provocative",
+                "reads Akira and crowd",
+                "creates or redirects social pressure",
+            ],
+            "forbidden": [
+                "generic companion comments",
+                "soft neutral observations with no pressure",
+                "guide/exposition voice",
+            ],
+            "rewrite_test": "If Livia sounds like a neutral guide/friend, rewrite with social spark or provocation.",
+        },
+        "npc_rule": "Active/focus NPCs must speak from their runtime_summary, relationship_slice and knowledge_slice; never use generic placeholder dialogue.",
+        "final_check": [
+            "Check speaker voice after writing the scene.",
+            "Check Akira speech options separately.",
+            "If any line fails voice fit, rewrite before sending.",
+        ],
+    }
+
 
     result["selection_rules"] = [
         "Use runtime summaries.",
         "Use relationships/knowledge before NPC reactions.",
         "Use response_format_contract body_format: bold speaker + long dash + italic descriptions.",
+        "Use pov_voice_gate_contract: every line must match speaker voice; speech options must match selected POV variant.",
         "Use energy atmosphere.",
         "No micro-choice endings.",
         "Save only important changes.",
@@ -1954,7 +2008,7 @@ def root() -> dict[str, Any]:
     return {
         "status": "ok",
         "project": PROJECT_SLUG,
-        "version": "3.4.10",
+        "version": "3.5.0",
         "actions_schema": "/openapi-actions.json",
         "health": "/health",
         "debug_volume": "/debug/volume",
@@ -1963,7 +2017,7 @@ def root() -> dict[str, Any]:
 
 @app.get("/health")
 def health() -> dict[str, Any]:
-    return {"success": True, "project": PROJECT_SLUG, "version": "3.4.10", "time": utc_now()}
+    return {"success": True, "project": PROJECT_SLUG, "version": "3.5.0", "time": utc_now()}
 
 
 @app.get("/debug/volume")
@@ -1993,14 +2047,249 @@ def create_session(req: CreateSessionRequest | None = None) -> dict[str, Any]:
 
 
 @app.post("/api/v1/sessions/{session_id}/turn-contract")
+
+def build_classic_required_files(current_state: dict[str, Any], mode: str) -> list[str]:
+    """Classic old-style turn-contract source list: small, readable, lock-based."""
+    files = [
+        "gpt/engine_prompt.md",
+        "gpt/scene_format.md",
+        "canon/novella_goal.md",
+        "canon/source_usage_rules.md",
+        "canon/character_depth_and_rotation.md",
+        "canon/relationship_memory_rules.md",
+        "state/memory_update_rules.md",
+        "gpt/locks/no_empty_scenes_lock.md",
+        "gpt/locks/apply_state_after_turn_lock.md",
+        "gpt/locks/character_presence_rotation_lock.md",
+        "gpt/locks/no_micro_choices_lock.md",
+        "gpt/locks/voice_fit_lock.md",
+        "gpt/locks/markdown_dialogue_format_lock.md",
+        "gpt/locks/energy_privacy_lock.md",
+        "gpt/locks/academy_energy_background_lock.md",
+        "engine/output_format.md",
+        "engine/markdown_dialogue_format_rules.md",
+        "engine/voice_fit_gate_rules.md",
+        "story/calendar/academy_start.yaml",
+        "state/current_state.json",
+        "state/knowledge_state.json",
+        "state/relationships.json",
+        "state/scene_history.json",
+        "state/reputation_state.json",
+        "state/rumors_state.json",
+        "state/inventory_state.json",
+    ]
+
+    selected = selected_character_ids(current_state)
+    focus_refs = focused_reference_character_ids(current_state, selected, max_focus=2)
+    for cid in unique(selected["full"] + focus_refs):
+        runtime_file = runtime_character_file_for(cid, current_state)
+        if runtime_file:
+            files.append(runtime_file)
+
+    arc_id = current_state.get("current_arc_id") or "arc_001_academy_start"
+    if isinstance(arc_id, str) and arc_id:
+        files.append(f"story/arcs/{arc_id}.yaml")
+
+    location_id = current_state.get("current_location_id") or "loc_academy_main"
+    add_location_files(files, location_id)
+
+    if mode in {"technical", "audit", "transfer"}:
+        files.extend(TECHNICAL_EXTRA_FILES)
+    if mode in {"audit", "transfer"}:
+        files.extend(AUDIT_EXTRA_FILES)
+    return unique(files)
+
+
+def classic_output_format_contract() -> dict[str, Any]:
+    return {
+        "priority": "highest_for_scene_output",
+        "dialogue_format": "**Имя или видимый дескриптор** — Реплика. (*короткая ремарка: тон, взгляд, пауза, жест*)",
+        "description_format": "*Описание действия, окружения, системной реакции или атмосферы отдельной строкой курсивом.*",
+        "rules": [
+            "Every spoken line starts with bold speaker name or visible descriptor.",
+            "Do not use names Akira has not heard or read yet.",
+            "After speaker name use long dash.",
+            "Dialogue text is plain.",
+            "Optional stage note is short and italic in parentheses.",
+            "No long actions in parentheses.",
+            "No character thoughts in parentheses.",
+            "Descriptions/actions/system reactions are separate italic paragraphs.",
+            "No direct Akira thoughts inside the scene.",
+            "Akira thoughts only in bottom block: Мысли Акиры.",
+            "No empty scenes: every scene needs a hook, conflict, conversation, observation, social reaction, rumor, consequence, or time skip.",
+            "If Akira goes for coffee/sleeps/walks, compress obvious steps and add a meaningful hook.",
+            "No micro-choice endings: do not stop on button/card/panel/waiting.",
+            "Speech options must match selected POV runtime variant.",
+            "NPC lines must match runtime summaries and relationship/knowledge slices.",
+            "If output format or voice fit is wrong, rewrite before sending.",
+        ],
+        "ending_block": {
+            "actions": "2-4 meaningful options; inner stance in first person: 'думать, что я послушная', not 'Акира послушная'.",
+            "speech": "2-4 short Akira lines in selected voice.",
+            "thoughts": "short, concrete, first-person or clipped POV thoughts.",
+        },
+    }
+
+
+def classic_allowed_new_facts() -> list[str]:
+    return [
+        "neutral sensory details",
+        "minor gestures, pauses, tone, clothing details",
+        "small social reactions from present characters",
+        "small background energy manifestations from other students",
+        "new named NPC only if saved after scene when meaningful",
+        "scene consequences derived from player input and current context",
+        "small director hook if current day has no specific beat and player did not skip time",
+    ]
+
+
+def classic_forbidden_new_facts(current_state: dict[str, Any]) -> list[str]:
+    result = [
+        "empty scenes where nothing happens and no line moves",
+        "future 1206 events as current 1198 facts",
+        "hidden nature of Akira revealed without scene basis",
+        "Raiden hybrid nature revealed without scene basis",
+        "NPC knowledge from unseen scenes",
+        "new items without state update",
+        "dialogue without bold speaker names",
+        "direct Akira thoughts inside scene text",
+        "Livia treated as new roommate/new acquaintance",
+        "important named NPC forgotten after scene",
+        "passive space or technical glitches around Akira without direct cause",
+        "generic speech options that do not match Akira selected runtime variant",
+        "Livia as neutral guide/exposition voice",
+        "micro-choice endings: press button, wait instructions, look panel, take card",
+    ]
+    date = current_state.get("current_date")
+    if date == "1198-08-15":
+        result.extend([
+            "automatic Akira energy clarification/check on ordinary registration",
+            "public reveal of Akira full energy type in first entry beat",
+            "students knowing Akira energy type without source",
+        ])
+    if date == "1198-08-31":
+        result.extend([
+            "public classification/advertising of student energy types without official source",
+            "public reveal of Akira energy type",
+            "all-knowing sensor revealing hidden lore",
+        ])
+    return result
+
+
+def classic_required_checks(current_state: dict[str, Any]) -> list[str]:
+    return [
+        "Load turn-contract every turn.",
+        "Use required_files and runtime summaries; do not continue from chat memory.",
+        "Obey output_format_contract exactly.",
+        "Check active/focus character runtime before writing any line.",
+        "Check voice_fit_lock before speech options and NPC dialogue.",
+        "Check knowledge_table before every NPC claim.",
+        "Check inventory_contract before mentioning usable items.",
+        "No empty scenes: add hook/consequence/social reaction/time compression.",
+        "No micro-choice endings: auto-advance to real decision/reply/risk.",
+        "Use day_contract as frame, not as rigid script.",
+        "Do not force all possible characters into one scene.",
+        "If Akira v2, speech options must be poisonous/lazy/controlled, not neutral.",
+        "Livia is old close friend and active social pressure, not guide.",
+        "Academy has energy carriers in background, but no automatic Akira reveal.",
+        "After meaningful scene, call applyTurnResultSimple and save important changes.",
+        "Rewrite before sending if format, voice, knowledge, or pacing is wrong.",
+    ]
+
+
+def classic_canon_locks(current_state: dict[str, Any]) -> list[str]:
+    return [
+        "livia_old_friend: Ливия — старая близкая подруга Акиры, не новая знакомая и не гид.",
+        "akira_variant_lock: использовать только выбранную runtime-версию Акиры.",
+        "akira_v2_voice: Акира v2 короткая, ленивая на поверхности, ядовитая, контролирующая, без мягкого дефолта.",
+        "akira_hidden_nature_remains_secret: природа Акиры остаётся скрытой; не раскрывать датчиком/narration/NPC без earned source.",
+        "academy_energy_background: Академия для носителей энергии; фоновые проявления допустимы, но не power-showcase без причины.",
+        "no_auto_akira_energy_check_aug15: 15 августа обычная регистрация не раскрывает/уточняет энергию Акиры автоматически.",
+        "energy_privacy_aug31: 31 августа не афишировать типы энергии студентов, включая Акиру, без официального основания.",
+        "raiden_dark_haired: Райден всегда тёмноволосый.",
+        "haru_not_flat_womanizer: Хару флиртует, но не плоский бабник.",
+    ]
+
+
+def build_classic_inventory_contract(session_id: str, current_state: dict[str, Any]) -> dict[str, Any]:
+    inventory_state = read_json_state(session_id, "inventory_state.json")
+    visible_items: list[str] = []
+    scene_continuity = current_state.get("scene_continuity", {})
+    if isinstance(scene_continuity, dict):
+        visible = scene_continuity.get("visible_item_state", {})
+        if isinstance(visible, dict):
+            for key, value in visible.items():
+                if isinstance(value, str) and value.strip():
+                    visible_items.append(value.strip())
+                elif value is True:
+                    visible_items.append(str(key))
+    if isinstance(inventory_state, dict):
+        for key in ("visible_inventory", "academy_issued_items", "nearby_items"):
+            value = inventory_state.get(key)
+            if isinstance(value, list):
+                visible_items.extend([str(item) for item in value if item])
+    return {
+        "visible_inventory": unique(visible_items)[:12],
+        "nearby_items": compact_value(inventory_state.get("nearby_items", []), max_depth=1, max_items=8, max_text=120) if isinstance(inventory_state, dict) else [],
+        "rule": "Do not mention or use items that are not in current_state/inventory_state unless scene grants them and save records them.",
+    }
+
+
+def build_classic_turn_contract(session_id: str, current_state: dict[str, Any], mode: str) -> dict[str, Any]:
+    selected = selected_character_ids(current_state)
+    focus_refs = focused_reference_character_ids(current_state, selected, max_focus=2)
+    focus_ids = unique(selected["full"] + focus_refs)
+    current_frame = build_current_frame(current_state, session_id)
+    calendar_slice = build_calendar_slice(session_id, current_state)
+    relationship_focus = build_relationship_slice(session_id, focus_ids)
+    knowledge_table = build_knowledge_slice(session_id, focus_ids)
+    character_runtime_focus = build_character_slice(session_id, current_state, focus_ids)
+
+    return {
+        "version": "turn_contract_classic_v2",
+        "session_id": session_id,
+        "mode": mode,
+        "active_character_ids": selected["active"],
+        "nearby_character_ids": selected["nearby"],
+        "focus_character_ids": focus_ids,
+        "reference_character_ids": selected["reference"][:6],
+        "current_frame": current_frame,
+        "day_contract": {
+            "source_file": calendar_slice.get("source_file"),
+            "calendar_id": calendar_slice.get("calendar_id"),
+            "current_day_id": calendar_slice.get("current_day_id"),
+            "current_date": calendar_slice.get("current_date"),
+            "protocol_compact": trim_text(str(calendar_slice.get("protocol_compact", "")), 700),
+            "current_day_block": trim_text(str(calendar_slice.get("current_day_block", "")), 1800),
+            "use_rule": "Calendar frames the day and forbids wrong reveals; AI must direct interesting hooks through characters and consequences.",
+        },
+        "output_format_contract": classic_output_format_contract(),
+        "allowed_new_facts_this_turn": classic_allowed_new_facts(),
+        "forbidden_new_facts_this_turn": classic_forbidden_new_facts(current_state),
+        "required_checks_before_answer": classic_required_checks(current_state),
+        "knowledge_table": knowledge_table,
+        "relationship_focus": relationship_focus,
+        "character_runtime_focus": character_runtime_focus,
+        "inventory_contract": build_classic_inventory_contract(session_id, current_state),
+        "canon_locks": classic_canon_locks(current_state),
+        "save_after_scene": {
+            "endpoint": "applyTurnResultSimple",
+            "rule": "Save only meaningful facts: events, important phrases, knowledge/wrong beliefs, relationship evidence, memory, open threads, gossip/rating/energy incidents/current_state.",
+        },
+    }
+
+
+
+
 def get_turn_contract(session_id: str, req: TurnContractRequest) -> dict[str, Any]:
     reject_reserved_session_id(session_id)
     sid, _ = ensure_session(session_id, reset=False)
     current_state = read_json_state(sid, "current_state.json")
     current_state = apply_user_variant_selection(sid, current_state, req.user_input)
     current_state = normalize_current_akira_variant_state(sid, current_state)
-    required_files = build_required_files(current_state, req.mode)
-    scene_contract = compact_scene_contract_for_tool(build_scene_contract(sid, current_state, req.mode))
+
+    required_files = build_classic_required_files(current_state, req.mode)
+    classic_contract = build_classic_turn_contract(sid, current_state, req.mode)
 
     contents: dict[str, Any] = {}
     if req.include_file_contents:
@@ -2013,8 +2302,8 @@ def get_turn_contract(session_id: str, req: TurnContractRequest) -> dict[str, An
     current_state_compact = compact_value(
         current_state,
         max_depth=2,
-        max_items=8,
-        max_text=140,
+        max_items=10,
+        max_text=180,
     )
 
     return {
@@ -2022,34 +2311,33 @@ def get_turn_contract(session_id: str, req: TurnContractRequest) -> dict[str, An
         "session_id": sid,
         "mode": req.mode,
         "is_game_turn": req.mode == "play",
-        "current_state": current_state_compact,
-        "current_state_summary": {
-            "active_character_ids": as_id_list(current_state.get("active_character_ids")),
-            "nearby_character_ids": as_id_list(current_state.get("nearby_character_ids")),
-            "mentioned_character_ids": as_id_list(current_state.get("mentioned_character_ids")),
-            "scheduled_character_ids": as_id_list(current_state.get("scheduled_character_ids")),
-            "delayed_character_ids": as_id_list(current_state.get("delayed_character_ids")),
-            "akira_runtime_variant": get_akira_runtime_variant(current_state),
-            "location_id": current_state.get("current_location_id"),
-            "time": current_state.get("current_time"),
-        },
-        "scene_contract": scene_contract,
-        "required_files": required_files[:32],
+        "contract_version": "turn_contract_classic_v2",
+        "active_character_ids": classic_contract["active_character_ids"],
+        "nearby_character_ids": classic_contract["nearby_character_ids"],
+        "focus_character_ids": classic_contract["focus_character_ids"],
+        "reference_character_ids": classic_contract["reference_character_ids"],
+        "required_files": required_files[:40],
         "required_file_count": len(required_files),
         "required_file_contents": contents,
-        "checks": [
-            "Scene Assembly Gate is required before writing play scenes.",
-            "Use compact runtime character summaries from character_slice.",
-            "Do not fetch full behavior.md/voice.md in normal play unless summary missing.",
-            "Use character_memory_slice, relationship_slice and knowledge_slice before NPC reactions.",
-            "Do not continue from chat memory if Action/contract fails.",
-            "After meaningful scene, call applyTurnResultSimple and save important memory only.",
-            "Scene Quality Gate: no intermediate loading messages, no empty header, real pressure required.",
-            "Energy atmosphere: Academy is for energy carriers; include small visible energy background detail.",
-            "Scene Progress Gate: do not end on micro-actions; advance to real choice/reply/risk.",
-            "Prose Style Gate: less artistic language; write clear physical facts and consequences.",
-            "Scene Quality Gate: no fast stub, no empty header, no technical preface, real pressure required.",
-        ],
+        "output_format_contract": classic_contract["output_format_contract"],
+        "allowed_new_facts_this_turn": classic_contract["allowed_new_facts_this_turn"],
+        "forbidden_new_facts_this_turn": classic_contract["forbidden_new_facts_this_turn"],
+        "required_checks_before_answer": classic_contract["required_checks_before_answer"],
+        "knowledge_table": classic_contract["knowledge_table"],
+        "inventory_contract": classic_contract["inventory_contract"],
+        "canon_locks": classic_contract["canon_locks"],
+        "day_contract": classic_contract["day_contract"],
+        "relationship_focus": classic_contract["relationship_focus"],
+        "character_runtime_focus": classic_contract["character_runtime_focus"],
+        "current_frame": classic_contract["current_frame"],
+        "current_state": current_state_compact,
+        # Backward-compatible minimal scene_contract. Do not use as primary play source.
+        "scene_contract": {
+            "version": "disabled_for_play__use_turn_contract_classic_v2",
+            "current_frame": classic_contract["current_frame"],
+            "note": "Classic restore: use top-level output_format_contract, required files, character_runtime_focus, day_contract, knowledge_table and locks.",
+        },
+        "save_after_scene": classic_contract["save_after_scene"],
     }
 
 
@@ -2201,7 +2489,7 @@ def openapi_actions() -> dict[str, Any]:
     server = PUBLIC_BASE_URL or "https://your-service.up.railway.app"
     return {
         "openapi": "3.1.0",
-        "info": {"title": f"{PROJECT_SLUG} GPT Actions", "version": "3.4.10"},
+        "info": {"title": f"{PROJECT_SLUG} GPT Actions", "version": "3.5.0"},
         "servers": [{"url": server}],
         "paths": {
             "/health": {

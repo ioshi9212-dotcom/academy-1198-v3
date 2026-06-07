@@ -61,3 +61,26 @@ forbidden:
   - "не раскрывать пространство без действия игрока"
   - "не писать длинные монологи"
   - "не заставлять улыбку быть дружелюбной"
+
+
+speech_option_gate:
+  hard_rule: "Speech options for Akira v2 must never be generic, polite or softly neutral."
+  must_be:
+    - "short"
+    - "lazy/calm on surface"
+    - "poisonous"
+    - "socially dangerous"
+    - "controlled"
+    - "with pressure or sharp evaluation"
+  forbidden:
+    - "neutral teen everyday phrasing"
+    - "polite default"
+    - "soft curiosity"
+    - "long explanation"
+    - "Ладно, но не мешай мне думать."
+    - "Ты всегда так шутить умеешь?"
+  good_examples:
+    - "Ливия, не дёргай. Я ещё решаю, кто здесь первый идиот."
+    - "Датчики нервничают. Милое начало."
+    - "Не шуми так радостно. Они ещё решат, что мы дружелюбные."
+    - "Пусть смотрят. Быстрее поймут, куда не лезть."
