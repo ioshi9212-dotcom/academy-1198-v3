@@ -33,7 +33,7 @@ MAX_FILE_CHARS = int(os.getenv("MAX_FILE_CHARS", "18000"))
 MAX_SCENE_SLICE_CHARS = int(os.getenv("MAX_SCENE_SLICE_CHARS", "2200"))
 RUNTIME_SUMMARY_CHARS = int(os.getenv("RUNTIME_SUMMARY_CHARS", "1250"))
 
-app = FastAPI(title=f"{PROJECT_SLUG} GPT Actions API", version="3.5.1")
+app = FastAPI(title=f"{PROJECT_SLUG} GPT Actions API", version="3.5.2")
 
 RESERVED_SESSION_IDS = {"default", "new", "none", "null", "undefined", "session"}
 
@@ -2008,7 +2008,7 @@ def root() -> dict[str, Any]:
     return {
         "status": "ok",
         "project": PROJECT_SLUG,
-        "version": "3.5.1",
+        "version": "3.5.2",
         "actions_schema": "/openapi-actions.json",
         "health": "/health",
         "debug_volume": "/debug/volume",
@@ -2017,7 +2017,7 @@ def root() -> dict[str, Any]:
 
 @app.get("/health")
 def health() -> dict[str, Any]:
-    return {"success": True, "project": PROJECT_SLUG, "version": "3.5.1", "time": utc_now()}
+    return {"success": True, "project": PROJECT_SLUG, "version": "3.5.2", "time": utc_now()}
 
 
 @app.get("/debug/volume")
@@ -2045,8 +2045,6 @@ def create_session(req: CreateSessionRequest | None = None) -> dict[str, Any]:
         "next": {"turn_contract": f"/api/v1/sessions/{sid}/turn-contract"},
     }
 
-
-@app.post("/api/v1/sessions/{session_id}/turn-contract")
 
 def build_classic_required_files(current_state: dict[str, Any], mode: str) -> list[str]:
     """Classic old-style turn-contract source list: small, readable, lock-based."""
@@ -2282,6 +2280,7 @@ def build_classic_turn_contract(session_id: str, current_state: dict[str, Any], 
 
 
 
+@app.post("/api/v1/sessions/{session_id}/turn-contract")
 def get_turn_contract(session_id: str, req: TurnContractRequest) -> dict[str, Any]:
     reject_reserved_session_id(session_id)
     sid, _ = ensure_session(session_id, reset=False)
@@ -2512,7 +2511,7 @@ def openapi_actions() -> dict[str, Any]:
     server = PUBLIC_BASE_URL or "https://your-service.up.railway.app"
     return {
         "openapi": "3.1.0",
-        "info": {"title": f"{PROJECT_SLUG} GPT Actions", "version": "3.5.1"},
+        "info": {"title": f"{PROJECT_SLUG} GPT Actions", "version": "3.5.2"},
         "servers": [{"url": server}],
         "paths": {
             "/health": {
