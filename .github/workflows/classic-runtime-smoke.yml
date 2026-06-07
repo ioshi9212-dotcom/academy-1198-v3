@@ -22,12 +22,26 @@ jobs:
       - name: Syntax check
         run: python -m py_compile app/main.py
 
-      - name: Check classic contract markers
+      - name: Check current tiny contract markers
         run: |
+          grep -q "version=\"3.5.3\"" app/main.py
           grep -q "turn_contract_classic_v2" app/main.py
-          grep -q "scene_contract_classic_bridge_v1" app/main.py
+          grep -q "response_profile.*tiny_3_5_3" app/main.py
+          grep -q "scene_contract_classic_bridge_v2_tiny" app/main.py
+          grep -q "tiny_scene_contract_bridge" app/main.py
           grep -q "classic_output_format_contract" app/main.py
           grep -q "classic_forbidden_new_facts" app/main.py
+
+      - name: Check turn-contract route is on get_turn_contract
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          text = Path('app/main.py').read_text(encoding='utf-8')
+          marker = '@app.post("/api/v1/sessions/{session_id}/turn-contract")\ndef get_turn_contract'
+          assert marker in text, 'turn-contract decorator is not attached to get_turn_contract'
+          bad = '@app.post("/api/v1/sessions/{session_id}/turn-contract")\n\ndef build_classic_required_files'
+          assert bad not in text, 'turn-contract decorator is still attached to helper'
+          PY
 
       - name: Check required files exist
         run: |
