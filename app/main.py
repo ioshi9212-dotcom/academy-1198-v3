@@ -33,7 +33,7 @@ MAX_FILE_CHARS = int(os.getenv("MAX_FILE_CHARS", "18000"))
 MAX_SCENE_SLICE_CHARS = int(os.getenv("MAX_SCENE_SLICE_CHARS", "2200"))
 RUNTIME_SUMMARY_CHARS = int(os.getenv("RUNTIME_SUMMARY_CHARS", "1250"))
 
-app = FastAPI(title=f"{PROJECT_SLUG} GPT Actions API", version="3.4.9")
+app = FastAPI(title=f"{PROJECT_SLUG} GPT Actions API", version="3.4.10")
 
 RESERVED_SESSION_IDS = {"default", "new", "none", "null", "undefined", "session"}
 
@@ -133,6 +133,7 @@ CORE_REQUIRED_FILES = [
     "engine/current_frame_policy.md",
     "engine/novel_director_core.md",
     "engine/output_format.md",
+    "engine/markdown_dialogue_format_rules.md",
     "engine/scene_generation_rules.md",
     "engine/event_engine_rules.md",
     "engine/pov_rules.md",
@@ -854,8 +855,38 @@ def compact_scene_contract_for_tool(contract: dict[str, Any]) -> dict[str, Any]:
         "must_have": ["current_frame", "character_slice", "relationship_slice", "knowledge_slice", "energy_atmosphere_slice"],
     }
     result["response_format_contract"] = {
-        "required": "emoji header + 7-12 short scene units + actions + speech options + Akira thoughts",
-        "forbidden": ["technical text", "empty header", "short stub", "micro-choice endings", "decorative prose", "invented Akira speech"],
+        "required": "emoji header + markdown scene body + action options + speech options + first-person Akira thoughts",
+        "body_format": {
+            "description": "*Описание, действие, атмосфера или системная реакция отдельным курсивным абзацем.*",
+            "dialogue": "**Имя или видимый дескриптор** — Реплика. (*короткая ремарка*)",
+            "dialogue_rules": [
+                "speaker name/descriptor always bold",
+                "use long dash after speaker",
+                "dialogue text is plain, without quotes unless character quotes someone",
+                "stage note is optional, short, in parentheses and italic",
+                "do not put long actions or thoughts in parentheses",
+                "if POV does not know a name, use visible descriptor",
+            ],
+        },
+        "ending_block_rules": [
+            "Что можно сделать options are written as POV options in first person when they describe Akira's inner stance",
+            "Write 'думать, что я послушная', not 'думать, что Акира послушная'",
+            "Описание/action options may use infinitive for physical action: 'пройти к стойке', 'остаться у окна'",
+            "Что сказать options are Akira's possible direct lines, short and in selected voice",
+            "Мысли Акиры are first-person or clipped POV thoughts, not third-person summaries",
+        ],
+        "forbidden": [
+            "technical text",
+            "empty header",
+            "short stub",
+            "micro-choice endings",
+            "decorative prose",
+            "invented Akira speech in body",
+            "speaker names not bold",
+            "dialogue with colon instead of long dash",
+            "plain non-italic description paragraphs",
+            "third-person inner options like 'Акира послушная'",
+        ],
     }
     result["scene_density_contract"] = {
         "target": "7-12 short units",
@@ -902,6 +933,7 @@ def compact_scene_contract_for_tool(contract: dict[str, Any]) -> dict[str, Any]:
     result["selection_rules"] = [
         "Use runtime summaries.",
         "Use relationships/knowledge before NPC reactions.",
+        "Use response_format_contract body_format: bold speaker + long dash + italic descriptions.",
         "Use energy atmosphere.",
         "No micro-choice endings.",
         "Save only important changes.",
@@ -1922,7 +1954,7 @@ def root() -> dict[str, Any]:
     return {
         "status": "ok",
         "project": PROJECT_SLUG,
-        "version": "3.4.9",
+        "version": "3.4.10",
         "actions_schema": "/openapi-actions.json",
         "health": "/health",
         "debug_volume": "/debug/volume",
@@ -1931,7 +1963,7 @@ def root() -> dict[str, Any]:
 
 @app.get("/health")
 def health() -> dict[str, Any]:
-    return {"success": True, "project": PROJECT_SLUG, "version": "3.4.9", "time": utc_now()}
+    return {"success": True, "project": PROJECT_SLUG, "version": "3.4.10", "time": utc_now()}
 
 
 @app.get("/debug/volume")
@@ -2169,7 +2201,7 @@ def openapi_actions() -> dict[str, Any]:
     server = PUBLIC_BASE_URL or "https://your-service.up.railway.app"
     return {
         "openapi": "3.1.0",
-        "info": {"title": f"{PROJECT_SLUG} GPT Actions", "version": "3.4.9"},
+        "info": {"title": f"{PROJECT_SLUG} GPT Actions", "version": "3.4.10"},
         "servers": [{"url": server}],
         "paths": {
             "/health": {
