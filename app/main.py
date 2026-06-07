@@ -33,7 +33,7 @@ MAX_FILE_CHARS = int(os.getenv("MAX_FILE_CHARS", "18000"))
 MAX_SCENE_SLICE_CHARS = int(os.getenv("MAX_SCENE_SLICE_CHARS", "2200"))
 RUNTIME_SUMMARY_CHARS = int(os.getenv("RUNTIME_SUMMARY_CHARS", "1250"))
 
-app = FastAPI(title=f"{PROJECT_SLUG} GPT Actions API", version="3.5.2")
+app = FastAPI(title=f"{PROJECT_SLUG} GPT Actions API", version="3.5.3")
 
 RESERVED_SESSION_IDS = {"default", "new", "none", "null", "undefined", "session"}
 
@@ -2008,7 +2008,7 @@ def root() -> dict[str, Any]:
     return {
         "status": "ok",
         "project": PROJECT_SLUG,
-        "version": "3.5.2",
+        "version": "3.5.3",
         "actions_schema": "/openapi-actions.json",
         "health": "/health",
         "debug_volume": "/debug/volume",
@@ -2017,7 +2017,7 @@ def root() -> dict[str, Any]:
 
 @app.get("/health")
 def health() -> dict[str, Any]:
-    return {"success": True, "project": PROJECT_SLUG, "version": "3.5.2", "time": utc_now()}
+    return {"success": True, "project": PROJECT_SLUG, "version": "3.5.3", "time": utc_now()}
 
 
 @app.get("/debug/volume")
@@ -2277,6 +2277,106 @@ def build_classic_turn_contract(session_id: str, current_state: dict[str, Any], 
         },
     }
 
+def compact_current_state_for_contract(current_state: dict[str, Any]) -> dict[str, Any]:
+    """Tiny state for Actions response. Full state stays in required_files/state."""
+    keys = [
+        "current_date",
+        "current_day_of_week",
+        "current_time",
+        "time_of_day",
+        "current_location_id",
+        "current_day_id",
+        "current_calendar_id",
+        "pov_character_id",
+        "active_character_ids",
+        "nearby_character_ids",
+        "mentioned_character_ids",
+        "scheduled_character_ids",
+        "delayed_character_ids",
+    ]
+    result = {key: current_state.get(key) for key in keys if key in current_state}
+    result["story_flags"] = compact_value(current_state.get("story_flags", {}), max_depth=1, max_items=6, max_text=80)
+    result["character_status"] = compact_value(current_state.get("character_status", {}), max_depth=2, max_items=4, max_text=90)
+    result["scene_continuity"] = compact_value(current_state.get("scene_continuity", {}), max_depth=2, max_items=4, max_text=90)
+    return result
+
+
+def compact_day_contract_for_response(day_contract: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "source_file": day_contract.get("source_file"),
+        "calendar_id": day_contract.get("calendar_id"),
+        "current_day_id": day_contract.get("current_day_id"),
+        "current_date": day_contract.get("current_date"),
+        "protocol_compact": trim_text(str(day_contract.get("protocol_compact", "")), 260),
+        "current_day_block": trim_text(str(day_contract.get("current_day_block", "")), 850),
+        "use_rule": "Use day frame/forbidden hooks; do not play all events at once.",
+    }
+
+
+def compact_character_runtime_for_response(value: dict[str, Any]) -> dict[str, Any]:
+    result: dict[str, Any] = {}
+    if not isinstance(value, dict):
+        return result
+    for cid, data in list(value.items())[:4]:
+        if not isinstance(data, dict):
+            continue
+        result[cid] = {
+            "character_id": data.get("character_id", cid),
+            "runtime_file": data.get("runtime_file"),
+            "selected_runtime_variant": data.get("selected_runtime_variant"),
+            "runtime_summary": trim_text(str(data.get("runtime_summary", "")), 760),
+            "card_hint": trim_text(str(data.get("card_hint", "")), 140),
+            "variant_rule": trim_text(str(data.get("variant_rule", "")), 180),
+            "use_rule": "Use this runtime voice/behavior; if generic, rewrite before sending.",
+        }
+        if data.get("goals_hint"):
+            result[cid]["goals_hint"] = trim_text(str(data.get("goals_hint")), 180)
+    return result
+
+
+def compact_focus_map_for_response(value: dict[str, Any], *, max_items: int = 4) -> dict[str, Any]:
+    if not isinstance(value, dict):
+        return {}
+    result: dict[str, Any] = {}
+    for key, item in list(value.items())[:max_items]:
+        result[key] = compact_value(item, max_depth=2, max_items=4, max_text=120)
+    return result
+
+
+def compact_output_format_for_response() -> dict[str, Any]:
+    return {
+        "priority": "highest_for_scene_output",
+        "description_format": "*Описание/действие/системная реакция отдельным курсивным абзацем.*",
+        "dialogue_format": "**Имя или видимый дескриптор** — Реплика. (*короткая ремарка*)",
+        "ending_block": "Что можно сделать / Что сказать / Мысли Акиры",
+        "rules_short": [
+            "bold speaker + long dash",
+            "description italic separate paragraph",
+            "no API/debug text",
+            "no empty scene",
+            "no micro-choice ending",
+            "speech options match selected POV runtime",
+        ],
+    }
+
+
+def tiny_scene_contract_bridge(classic_contract: dict[str, Any]) -> dict[str, Any]:
+    """Only for old GPT gates. Do not duplicate the full classic contract."""
+    return {
+        "version": "scene_contract_classic_bridge_v2_tiny",
+        "usable": True,
+        "source_contract_version": "turn_contract_classic_v2",
+        "current_frame": compact_value(classic_contract.get("current_frame", {}), max_depth=2, max_items=6, max_text=90),
+        "active_character_ids": classic_contract.get("active_character_ids", []),
+        "focus_character_ids": classic_contract.get("focus_character_ids", []),
+        "output_format_hint": "Use top-level output_format_contract. This bridge exists only to satisfy scene_contract gates.",
+        "play_gate": {
+            "rule": "scene_contract is usable; continue with top-level turn_contract_classic_v2 fields.",
+            "failure_line": "Не удалось собрать turn-contract через Action. Без него я не продолжаю игровую сцену.",
+        },
+    }
+
+
 
 
 
@@ -2299,68 +2399,39 @@ def get_turn_contract(session_id: str, req: TurnContractRequest) -> dict[str, An
             except Exception as exc:
                 contents[path] = {"error": str(exc), "truncated": False, "chars": 0, "content": ""}
 
-    current_state_compact = compact_value(
-        current_state,
-        max_depth=2,
-        max_items=10,
-        max_text=180,
-    )
-
-    return {
+    response = {
         "success": True,
         "session_id": sid,
         "mode": req.mode,
         "is_game_turn": req.mode == "play",
         "contract_version": "turn_contract_classic_v2",
+        "response_profile": "tiny_3_5_3",
         "active_character_ids": classic_contract["active_character_ids"],
         "nearby_character_ids": classic_contract["nearby_character_ids"],
         "focus_character_ids": classic_contract["focus_character_ids"],
-        "reference_character_ids": classic_contract["reference_character_ids"],
-        "required_files": required_files[:40],
+        "reference_character_ids": classic_contract["reference_character_ids"][:4],
+        "required_files": required_files[:30],
         "required_file_count": len(required_files),
         "required_file_contents": contents,
-        "output_format_contract": classic_contract["output_format_contract"],
-        "allowed_new_facts_this_turn": classic_contract["allowed_new_facts_this_turn"],
-        "forbidden_new_facts_this_turn": classic_contract["forbidden_new_facts_this_turn"],
-        "required_checks_before_answer": classic_contract["required_checks_before_answer"],
-        "knowledge_table": classic_contract["knowledge_table"],
-        "inventory_contract": classic_contract["inventory_contract"],
-        "canon_locks": classic_contract["canon_locks"],
-        "day_contract": classic_contract["day_contract"],
-        "relationship_focus": classic_contract["relationship_focus"],
-        "character_runtime_focus": classic_contract["character_runtime_focus"],
-        "current_frame": classic_contract["current_frame"],
-        "current_state": current_state_compact,
-        # Backward-compatible usable scene_contract bridge.
-        # Some GPT/Action layers still check for a usable scene_contract before play.
-        # This bridge mirrors classic turn-contract so old gates do not stop the scene.
-        "scene_contract": {
-            "version": "scene_contract_classic_bridge_v1",
-            "source_contract_version": "turn_contract_classic_v2",
-            "usable": True,
-            "current_frame": classic_contract["current_frame"],
-            "active_character_ids": classic_contract["active_character_ids"],
-            "nearby_character_ids": classic_contract["nearby_character_ids"],
-            "focus_character_ids": classic_contract["focus_character_ids"],
-            "reference_character_ids": classic_contract["reference_character_ids"],
-            "required_files": required_files[:40],
-            "output_format_contract": classic_contract["output_format_contract"],
-            "allowed_new_facts_this_turn": classic_contract["allowed_new_facts_this_turn"],
-            "forbidden_new_facts_this_turn": classic_contract["forbidden_new_facts_this_turn"],
-            "required_checks_before_answer": classic_contract["required_checks_before_answer"],
-            "knowledge_table": classic_contract["knowledge_table"],
-            "inventory_contract": classic_contract["inventory_contract"],
-            "canon_locks": classic_contract["canon_locks"],
-            "day_contract": classic_contract["day_contract"],
-            "relationship_focus": classic_contract["relationship_focus"],
-            "character_runtime_focus": classic_contract["character_runtime_focus"],
-            "play_gate": {
-                "rule": "This scene_contract is usable. Do not stop on scene assembly packet check.",
-                "failure_line": "Не удалось собрать turn-contract через Action. Без него я не продолжаю игровую сцену.",
-            },
+        "output_format_contract": compact_output_format_for_response(),
+        "allowed_new_facts_this_turn": classic_contract["allowed_new_facts_this_turn"][:5],
+        "forbidden_new_facts_this_turn": classic_contract["forbidden_new_facts_this_turn"][:18],
+        "required_checks_before_answer": classic_contract["required_checks_before_answer"][:16],
+        "knowledge_table": compact_focus_map_for_response(classic_contract["knowledge_table"], max_items=4),
+        "inventory_contract": compact_value(classic_contract["inventory_contract"], max_depth=2, max_items=6, max_text=100),
+        "canon_locks": classic_contract["canon_locks"][:10],
+        "day_contract": compact_day_contract_for_response(classic_contract["day_contract"]),
+        "relationship_focus": compact_focus_map_for_response(classic_contract["relationship_focus"], max_items=4),
+        "character_runtime_focus": compact_character_runtime_for_response(classic_contract["character_runtime_focus"]),
+        "current_frame": compact_value(classic_contract["current_frame"], max_depth=3, max_items=8, max_text=120),
+        "current_state": compact_current_state_for_contract(current_state),
+        "scene_contract": tiny_scene_contract_bridge(classic_contract),
+        "save_after_scene": {
+            "endpoint": "applyTurnResultSimple",
+            "rule": "Save meaningful state only.",
         },
-        "save_after_scene": classic_contract["save_after_scene"],
     }
+    return response
 
 
 @app.post("/api/v1/sessions/{session_id}/apply-turn-result")
@@ -2511,7 +2582,7 @@ def openapi_actions() -> dict[str, Any]:
     server = PUBLIC_BASE_URL or "https://your-service.up.railway.app"
     return {
         "openapi": "3.1.0",
-        "info": {"title": f"{PROJECT_SLUG} GPT Actions", "version": "3.5.2"},
+        "info": {"title": f"{PROJECT_SLUG} GPT Actions", "version": "3.5.3"},
         "servers": [{"url": server}],
         "paths": {
             "/health": {
