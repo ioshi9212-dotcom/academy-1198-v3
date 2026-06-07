@@ -1,0 +1,40 @@
+name: classic-runtime-smoke
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Syntax check
+        run: python -m py_compile app/main.py
+
+      - name: Check classic contract markers
+        run: |
+          grep -q "turn_contract_classic_v2" app/main.py
+          grep -q "scene_contract_classic_bridge_v1" app/main.py
+          grep -q "classic_output_format_contract" app/main.py
+          grep -q "classic_forbidden_new_facts" app/main.py
+
+      - name: Check required files exist
+        run: |
+          test -f gpt/custom_gpt_instructions_CLASSIC_RESTORE.md
+          test -f gpt/locks/no_empty_scenes_lock.md
+          test -f gpt/locks/no_micro_choices_lock.md
+          test -f gpt/locks/voice_fit_lock.md
+          test -f gpt/locks/markdown_dialogue_format_lock.md
+          test -f gpt/locks/energy_privacy_lock.md
+          test -f story/calendar/academy_start.yaml
