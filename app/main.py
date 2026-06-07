@@ -31,9 +31,9 @@ PUBLIC_BASE_URL = os.getenv("PUBLIC_BASE_URL", "").rstrip("/")
 COMPACT_EVERY_TURNS = int(os.getenv("COMPACT_EVERY_TURNS", "15"))
 MAX_FILE_CHARS = int(os.getenv("MAX_FILE_CHARS", "18000"))
 MAX_SCENE_SLICE_CHARS = int(os.getenv("MAX_SCENE_SLICE_CHARS", "2200"))
-RUNTIME_SUMMARY_CHARS = int(os.getenv("RUNTIME_SUMMARY_CHARS", "1600"))
+RUNTIME_SUMMARY_CHARS = int(os.getenv("RUNTIME_SUMMARY_CHARS", "950"))
 
-app = FastAPI(title=f"{PROJECT_SLUG} GPT Actions API", version="3.4.7")
+app = FastAPI(title=f"{PROJECT_SLUG} GPT Actions API", version="3.4.8")
 
 RESERVED_SESSION_IDS = {"default", "new", "none", "null", "undefined", "session"}
 
@@ -645,6 +645,221 @@ def apply_user_variant_selection(session_id: str, current_state: dict[str, Any],
     return current_state
 
 
+
+def state_has_akira_v2_marker(current_state: dict[str, Any]) -> bool:
+    """Return True if any stored state field says Akira v2 is active."""
+    status = {}
+    if isinstance(current_state.get("character_status"), dict):
+        status = current_state.get("character_status", {}).get("char_akira", {}) or {}
+    story_flags = current_state.get("story_flags", {}) if isinstance(current_state.get("story_flags"), dict) else {}
+    raw_values = [
+        status.get("runtime_variant"),
+        status.get("behavior_version"),
+        status.get("behavior_mask"),
+        status.get("active_mask"),
+        status.get("selected_runtime_variant"),
+        story_flags.get("akira_runtime_variant"),
+        story_flags.get("akira_behavior_version"),
+        story_flags.get("akira_mask"),
+    ]
+    return any(normalize_akira_variant(value) == "version_2_poisonous" for value in raw_values if value is not None)
+
+
+def normalize_current_akira_variant_state(session_id: str, current_state: dict[str, Any]) -> dict[str, Any]:
+    """Fix v1/v2 drift inside long-running sessions. Prefer v2 if any field already confirms v2."""
+    if not isinstance(current_state, dict):
+        return current_state
+
+    selected = "version_2_poisonous" if state_has_akira_v2_marker(current_state) else get_akira_runtime_variant(current_state)
+
+    current_state.setdefault("character_status", {})
+    current_state["character_status"].setdefault("char_akira", {})
+    status = current_state["character_status"]["char_akira"]
+
+    changed = False
+    for key in ("runtime_variant", "behavior_version", "active_mask"):
+        if status.get(key) != selected:
+            status[key] = selected
+            changed = True
+
+    current_state.setdefault("story_flags", {})
+    if current_state["story_flags"].get("akira_runtime_variant") != selected:
+        current_state["story_flags"]["akira_runtime_variant"] = selected
+        changed = True
+
+    if changed:
+        write_state(session_id, "current_state.json", current_state)
+    return current_state
+
+
+def compact_string_map(value: Any, max_chars: int = 360) -> Any:
+    if isinstance(value, str):
+        return trim_text(value, max_chars)
+    if isinstance(value, dict):
+        return {str(k): compact_string_map(v, max_chars) for k, v in list(value.items())[:4]}
+    return compact_value(value, max_depth=1, max_items=4, max_text=max_chars)
+
+
+def compact_scene_contract_for_tool(contract: dict[str, Any]) -> dict[str, Any]:
+    """Hard cap the Action response so long sessions do not hit ResponseTooLargeError."""
+    if not isinstance(contract, dict):
+        return {}
+
+    def cv(value: Any, depth: int = 2, items: int = 4, text_len: int = 160) -> Any:
+        return compact_value(value, max_depth=depth, max_items=items, max_text=text_len)
+
+    result: dict[str, Any] = {
+        "version": "scene_contract_v5_ultra_compact",
+        "mode": contract.get("mode"),
+        "compact_reason": "ResponseTooLarge protection; full files remain available through getProjectFileByQuery in technical mode.",
+    }
+
+    # current frame / header
+    result["current_frame"] = cv(contract.get("current_frame", {}), depth=3, items=8, text_len=120)
+    result["header_contract"] = {
+        "template_lines": [
+            "📅 {date_human}",
+            "🕒 {time_human}",
+            "📍 Место: {location_human}",
+            "🌤 Погода: {weather_human}",
+            "🫀 Состояние Акиры: {pov_state_human}",
+            "🎒 При себе / рядом: {context_human}",
+        ],
+        "omit_empty_lines": True,
+        "rules_short": "🫀 state only; 🎒 visible items/clothes/hair/nearby; no dry/wet unless relevant.",
+    }
+
+    # compact scene sources
+    calendar = contract.get("calendar_slice", {}) if isinstance(contract.get("calendar_slice"), dict) else {}
+    result["calendar_slice"] = {
+        "calendar_id": calendar.get("calendar_id"),
+        "current_day_id": calendar.get("current_day_id"),
+        "current_date": calendar.get("current_date"),
+        "current_day_block": trim_text(str(calendar.get("current_day_block", "")), 700),
+    }
+
+    arc = contract.get("arc_slice", {}) if isinstance(contract.get("arc_slice"), dict) else {}
+    result["arc_slice"] = {
+        "source_file": arc.get("source_file"),
+        "content": trim_text(str(arc.get("content", "")), 450),
+    }
+
+    location = contract.get("location_slice", {}) if isinstance(contract.get("location_slice"), dict) else {}
+    location_content = location.get("content", {})
+    if not isinstance(location_content, dict):
+        location_content = {}
+    result["location_slice"] = {
+        "location_id": location.get("location_id"),
+        "source_files": location.get("source_files", [])[:2] if isinstance(location.get("source_files"), list) else [],
+        "content": {k: trim_text(str(v), 360) for k, v in list(location_content.items())[:2]},
+    }
+
+    # character load plan
+    load_plan = contract.get("character_load_plan", {}) if isinstance(contract.get("character_load_plan"), dict) else {}
+    result["character_load_plan"] = {
+        "full_character_ids": load_plan.get("full_character_ids", []),
+        "reference_character_ids": (load_plan.get("reference_character_ids", []) or [])[:4],
+        "full_rule": "Use compact runtime summaries only.",
+    }
+
+    # character slice
+    char_slice = contract.get("character_slice", {})
+    compact_chars: dict[str, Any] = {}
+    if isinstance(char_slice, dict):
+        for cid, data in list(char_slice.items())[:5]:
+            if not isinstance(data, dict):
+                continue
+            compact_chars[cid] = {
+                "character_id": data.get("character_id", cid),
+                "folder": data.get("folder"),
+                "runtime_file": data.get("runtime_file"),
+                "selected_runtime_variant": data.get("selected_runtime_variant"),
+                "runtime_summary": trim_text(str(data.get("runtime_summary", "")), 850),
+                "card_hint": trim_text(str(data.get("card_hint", "")), 220),
+                "variant_rule": data.get("variant_rule"),
+            }
+            if data.get("goals_hint"):
+                compact_chars[cid]["goals_hint"] = trim_text(str(data.get("goals_hint")), 240)
+    result["character_slice"] = compact_chars
+
+    # state/knowledge/memory
+    result["character_memory_slice"] = cv(contract.get("character_memory_slice", {}), depth=2, items=3, text_len=130)
+    result["relationship_slice"] = cv(contract.get("relationship_slice", {}), depth=2, items=4, text_len=130)
+    result["relationship_behavior_contract"] = {
+        "rule": "relationship_slice + behavior_next shape NPC behavior",
+        "levels": "trust/tension/respect/curiosity/jealousy/resentment",
+    }
+    result["knowledge_slice"] = cv(contract.get("knowledge_slice", {}), depth=2, items=4, text_len=130)
+    result["knowledge_write_contract"] = {"rule": "Save only new seen/heard/said facts and wrong beliefs."}
+    result["open_threads_slice"] = cv(contract.get("open_threads_slice", {}), depth=2, items=3, text_len=130)
+    result["shared_incidents_slice"] = cv(contract.get("shared_incidents_slice", {}), depth=2, items=3, text_len=130)
+
+    # event/energy
+    result["event_engine_slice"] = cv(contract.get("event_engine_slice", {}), depth=2, items=3, text_len=130)
+
+    energy = contract.get("energy_atmosphere_slice", {}) if isinstance(contract.get("energy_atmosphere_slice"), dict) else {}
+    active_energy = energy.get("active_character_energy", {})
+    if not isinstance(active_energy, dict):
+        active_energy = {}
+    result["energy_atmosphere_slice"] = {
+        "academy_rule": energy.get("academy_rule", "Academy scenes must feel populated by energy carriers."),
+        "atmosphere_compact": trim_text(str(energy.get("atmosphere_compact", "")), 620),
+        "classes_compact": trim_text(str(energy.get("classes_compact", "")), 360),
+        "active_character_energy": {
+            cid: cv(data, depth=1, items=3, text_len=260)
+            for cid, data in list(active_energy.items())[:3]
+        },
+        "energy_incidents": cv(energy.get("energy_incidents", {}), depth=2, items=2, text_len=110),
+        "use_rules": [
+            "Add 1 small physical energy detail in Academy scenes.",
+            "No power showcase without trigger.",
+            "Save meaningful slips as energy_incident.",
+        ],
+    }
+
+    # hard gates as tiny contracts
+    result["scene_assembly_gate"] = {
+        "status": "hard_gate",
+        "failure_line": "Не удалось собрать scene assembly packet через Action. Без него я не продолжаю игровую сцену.",
+        "must_have": ["current_frame", "character_slice", "relationship_slice", "knowledge_slice", "energy_atmosphere_slice"],
+    }
+    result["response_format_contract"] = {
+        "required": "emoji header + scene + actions + speech options + Akira thoughts",
+        "forbidden": ["technical text", "empty header", "micro-choice endings", "decorative prose"],
+    }
+    result["scene_density_contract"] = {
+        "target": "7-12 short units",
+        "must": ["world/system motion", "Akira POV", "active NPC reaction", "pressure/change", "real choice"],
+    }
+    result["scene_quality_gate_contract"] = {
+        "rule": "No stub. Complete scene only. NPC dialogue/action + pressure + consequence.",
+    }
+    result["scene_progress_contract"] = {
+        "rule": "Do not stop on micro-actions; auto-advance to real choice/reply/risk.",
+        "forbidden_micro_choices": ["press button", "wait instructions", "look panel", "take card", "continue observing"],
+    }
+    result["prose_style_contract"] = {
+        "rule": "clear factual prose; no decorative literary contrast",
+        "example": "Bad: 'контрастируя с серостью'; Good: 'заметны в холодном свете панели'.",
+    }
+    result["npc_autonomy_contract"] = {
+        "rule": "NPCs/world do not obey player intent automatically; thoughts are not NPC knowledge.",
+    }
+    result["memory_write_contract"] = {
+        "rule": "Save important events/quotes/knowledge/relationship/energy only; not full dialogue.",
+    }
+
+    result["selection_rules"] = [
+        "Use runtime summaries.",
+        "Use relationships/knowledge before NPC reactions.",
+        "Use energy atmosphere.",
+        "No micro-choice endings.",
+        "Save only important changes.",
+    ]
+    return result
+
+
+
 def runtime_character_file_for(character_id: str, current_state: dict[str, Any]) -> str | None:
     folder = character_folder(character_id)
     if not folder:
@@ -705,7 +920,7 @@ def build_character_slice(session_id: str, current_state: dict[str, Any], charac
 
         runtime_file = runtime_character_file_for(character_id, current_state) or f"runtime/characters/{folder}.yaml"
         runtime_summary = safe_read_text(runtime_file, session_id, max_chars=RUNTIME_SUMMARY_CHARS)
-        card = safe_read_text(f"characters/{folder}/character_card.yaml", session_id, max_chars=650)
+        card = safe_read_text(f"characters/{folder}/character_card.yaml", session_id, max_chars=300)
 
         data: dict[str, Any] = {
             "character_id": character_id,
@@ -724,8 +939,8 @@ def build_character_slice(session_id: str, current_state: dict[str, Any], charac
         if not runtime_summary:
             # Safe fallback: small extracts only, never full files.
             data["source"] = "compact_fallback"
-            data["behavior_hint"] = safe_read_text(f"characters/{folder}/behavior.md", session_id, max_chars=900)
-            data["voice_hint"] = safe_read_text(f"characters/{folder}/voice.md", session_id, max_chars=700)
+            data["behavior_hint"] = safe_read_text(f"characters/{folder}/behavior.md", session_id, max_chars=500)
+            data["voice_hint"] = safe_read_text(f"characters/{folder}/voice.md", session_id, max_chars=350)
 
         if should_load_goals(current_state, character_id):
             data["goals_hint"] = safe_read_text(f"characters/{folder}/goals.yaml", session_id, max_chars=700)
@@ -1654,7 +1869,7 @@ def root() -> dict[str, Any]:
     return {
         "status": "ok",
         "project": PROJECT_SLUG,
-        "version": "3.4.7",
+        "version": "3.4.8",
         "actions_schema": "/openapi-actions.json",
         "health": "/health",
         "debug_volume": "/debug/volume",
@@ -1663,7 +1878,7 @@ def root() -> dict[str, Any]:
 
 @app.get("/health")
 def health() -> dict[str, Any]:
-    return {"success": True, "project": PROJECT_SLUG, "version": "3.4.7", "time": utc_now()}
+    return {"success": True, "project": PROJECT_SLUG, "version": "3.4.8", "time": utc_now()}
 
 
 @app.get("/debug/volume")
@@ -1698,8 +1913,9 @@ def get_turn_contract(session_id: str, req: TurnContractRequest) -> dict[str, An
     sid, _ = ensure_session(session_id, reset=False)
     current_state = read_json_state(sid, "current_state.json")
     current_state = apply_user_variant_selection(sid, current_state, req.user_input)
+    current_state = normalize_current_akira_variant_state(sid, current_state)
     required_files = build_required_files(current_state, req.mode)
-    scene_contract = build_scene_contract(sid, current_state, req.mode)
+    scene_contract = compact_scene_contract_for_tool(build_scene_contract(sid, current_state, req.mode))
 
     contents: dict[str, Any] = {}
     if req.include_file_contents:
@@ -1711,9 +1927,9 @@ def get_turn_contract(session_id: str, req: TurnContractRequest) -> dict[str, An
 
     current_state_compact = compact_value(
         current_state,
-        max_depth=3,
-        max_items=12,
-        max_text=260,
+        max_depth=2,
+        max_items=8,
+        max_text=140,
     )
 
     return {
@@ -1723,7 +1939,8 @@ def get_turn_contract(session_id: str, req: TurnContractRequest) -> dict[str, An
         "is_game_turn": req.mode == "play",
         "current_state": current_state_compact,
         "scene_contract": scene_contract,
-        "required_files": required_files,
+        "required_files": required_files[:32],
+        "required_file_count": len(required_files),
         "required_file_contents": contents,
         "checks": [
             "Scene Assembly Gate is required before writing play scenes.",
@@ -1889,7 +2106,7 @@ def openapi_actions() -> dict[str, Any]:
     server = PUBLIC_BASE_URL or "https://your-service.up.railway.app"
     return {
         "openapi": "3.1.0",
-        "info": {"title": f"{PROJECT_SLUG} GPT Actions", "version": "3.4.7"},
+        "info": {"title": f"{PROJECT_SLUG} GPT Actions", "version": "3.4.8"},
         "servers": [{"url": server}],
         "paths": {
             "/health": {
