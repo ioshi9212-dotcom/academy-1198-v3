@@ -33,7 +33,7 @@ MAX_FILE_CHARS = int(os.getenv("MAX_FILE_CHARS", "18000"))
 MAX_SCENE_SLICE_CHARS = int(os.getenv("MAX_SCENE_SLICE_CHARS", "2200"))
 RUNTIME_SUMMARY_CHARS = int(os.getenv("RUNTIME_SUMMARY_CHARS", "1250"))
 
-app = FastAPI(title=f"{PROJECT_SLUG} GPT Actions API", version="3.5.0")
+app = FastAPI(title=f"{PROJECT_SLUG} GPT Actions API", version="3.5.1")
 
 RESERVED_SESSION_IDS = {"default", "new", "none", "null", "undefined", "session"}
 
@@ -2008,7 +2008,7 @@ def root() -> dict[str, Any]:
     return {
         "status": "ok",
         "project": PROJECT_SLUG,
-        "version": "3.5.0",
+        "version": "3.5.1",
         "actions_schema": "/openapi-actions.json",
         "health": "/health",
         "debug_volume": "/debug/volume",
@@ -2017,7 +2017,7 @@ def root() -> dict[str, Any]:
 
 @app.get("/health")
 def health() -> dict[str, Any]:
-    return {"success": True, "project": PROJECT_SLUG, "version": "3.5.0", "time": utc_now()}
+    return {"success": True, "project": PROJECT_SLUG, "version": "3.5.1", "time": utc_now()}
 
 
 @app.get("/debug/volume")
@@ -2066,6 +2066,7 @@ def build_classic_required_files(current_state: dict[str, Any], mode: str) -> li
         "gpt/locks/markdown_dialogue_format_lock.md",
         "gpt/locks/energy_privacy_lock.md",
         "gpt/locks/academy_energy_background_lock.md",
+        "gpt/locks/classic_scene_contract_bridge_lock.md",
         "engine/output_format.md",
         "engine/markdown_dialogue_format_rules.md",
         "engine/voice_fit_gate_rules.md",
@@ -2331,11 +2332,33 @@ def get_turn_contract(session_id: str, req: TurnContractRequest) -> dict[str, An
         "character_runtime_focus": classic_contract["character_runtime_focus"],
         "current_frame": classic_contract["current_frame"],
         "current_state": current_state_compact,
-        # Backward-compatible minimal scene_contract. Do not use as primary play source.
+        # Backward-compatible usable scene_contract bridge.
+        # Some GPT/Action layers still check for a usable scene_contract before play.
+        # This bridge mirrors classic turn-contract so old gates do not stop the scene.
         "scene_contract": {
-            "version": "disabled_for_play__use_turn_contract_classic_v2",
+            "version": "scene_contract_classic_bridge_v1",
+            "source_contract_version": "turn_contract_classic_v2",
+            "usable": True,
             "current_frame": classic_contract["current_frame"],
-            "note": "Classic restore: use top-level output_format_contract, required files, character_runtime_focus, day_contract, knowledge_table and locks.",
+            "active_character_ids": classic_contract["active_character_ids"],
+            "nearby_character_ids": classic_contract["nearby_character_ids"],
+            "focus_character_ids": classic_contract["focus_character_ids"],
+            "reference_character_ids": classic_contract["reference_character_ids"],
+            "required_files": required_files[:40],
+            "output_format_contract": classic_contract["output_format_contract"],
+            "allowed_new_facts_this_turn": classic_contract["allowed_new_facts_this_turn"],
+            "forbidden_new_facts_this_turn": classic_contract["forbidden_new_facts_this_turn"],
+            "required_checks_before_answer": classic_contract["required_checks_before_answer"],
+            "knowledge_table": classic_contract["knowledge_table"],
+            "inventory_contract": classic_contract["inventory_contract"],
+            "canon_locks": classic_contract["canon_locks"],
+            "day_contract": classic_contract["day_contract"],
+            "relationship_focus": classic_contract["relationship_focus"],
+            "character_runtime_focus": classic_contract["character_runtime_focus"],
+            "play_gate": {
+                "rule": "This scene_contract is usable. Do not stop on scene assembly packet check.",
+                "failure_line": "Не удалось собрать turn-contract через Action. Без него я не продолжаю игровую сцену.",
+            },
         },
         "save_after_scene": classic_contract["save_after_scene"],
     }
@@ -2489,7 +2512,7 @@ def openapi_actions() -> dict[str, Any]:
     server = PUBLIC_BASE_URL or "https://your-service.up.railway.app"
     return {
         "openapi": "3.1.0",
-        "info": {"title": f"{PROJECT_SLUG} GPT Actions", "version": "3.5.0"},
+        "info": {"title": f"{PROJECT_SLUG} GPT Actions", "version": "3.5.1"},
         "servers": [{"url": server}],
         "paths": {
             "/health": {
