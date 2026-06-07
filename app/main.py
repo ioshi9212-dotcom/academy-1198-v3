@@ -31,9 +31,9 @@ PUBLIC_BASE_URL = os.getenv("PUBLIC_BASE_URL", "").rstrip("/")
 COMPACT_EVERY_TURNS = int(os.getenv("COMPACT_EVERY_TURNS", "15"))
 MAX_FILE_CHARS = int(os.getenv("MAX_FILE_CHARS", "18000"))
 MAX_SCENE_SLICE_CHARS = int(os.getenv("MAX_SCENE_SLICE_CHARS", "2200"))
-RUNTIME_SUMMARY_CHARS = int(os.getenv("RUNTIME_SUMMARY_CHARS", "950"))
+RUNTIME_SUMMARY_CHARS = int(os.getenv("RUNTIME_SUMMARY_CHARS", "1250"))
 
-app = FastAPI(title=f"{PROJECT_SLUG} GPT Actions API", version="3.4.8")
+app = FastAPI(title=f"{PROJECT_SLUG} GPT Actions API", version="3.4.9")
 
 RESERVED_SESSION_IDS = {"default", "new", "none", "null", "undefined", "session"}
 
@@ -582,6 +582,28 @@ def selected_character_ids(current_state: dict[str, Any]) -> dict[str, list[str]
 
 
 
+
+def focused_reference_character_ids(current_state: dict[str, Any], selected: dict[str, list[str]], max_focus: int = 2) -> list[str]:
+    """Promote a small number of referenced/delayed characters into scene sources when the beat needs them."""
+    refs = list(selected.get("reference", []))
+    if not refs:
+        return []
+
+    # If the current state has explicit pending pressure, references can matter even if not "nearby".
+    flags = current_state.get("story_flags", {}) if isinstance(current_state.get("story_flags"), dict) else {}
+    pending_keys = [
+        key for key, value in flags.items()
+        if value and any(token in str(key).lower() for token in ["pending", "choice", "calibration", "kir", "kiara", "rating", "rumor"])
+    ]
+
+    # Always allow a tiny focus slice for the first references, because delayed/relevant NPCs
+    # often drive the next beat before they become active.
+    if pending_keys or refs:
+        return refs[:max_focus]
+    return []
+
+
+
 CHARACTER_HEADER_LABELS = {
     "char_akira": "Акира",
     "char_livia": "Ливия",
@@ -709,13 +731,13 @@ def compact_scene_contract_for_tool(contract: dict[str, Any]) -> dict[str, Any]:
         return compact_value(value, max_depth=depth, max_items=items, max_text=text_len)
 
     result: dict[str, Any] = {
-        "version": "scene_contract_v5_ultra_compact",
+        "version": "scene_contract_v5_balanced_compact",
         "mode": contract.get("mode"),
-        "compact_reason": "ResponseTooLarge protection; full files remain available through getProjectFileByQuery in technical mode.",
+        "compact_reason": "Balanced compact contract: small enough for Actions, detailed enough for scene quality.",
     }
 
     # current frame / header
-    result["current_frame"] = cv(contract.get("current_frame", {}), depth=3, items=8, text_len=120)
+    result["current_frame"] = cv(contract.get("current_frame", {}), depth=3, items=10, text_len=180)
     result["header_contract"] = {
         "template_lines": [
             "📅 {date_human}",
@@ -735,13 +757,13 @@ def compact_scene_contract_for_tool(contract: dict[str, Any]) -> dict[str, Any]:
         "calendar_id": calendar.get("calendar_id"),
         "current_day_id": calendar.get("current_day_id"),
         "current_date": calendar.get("current_date"),
-        "current_day_block": trim_text(str(calendar.get("current_day_block", "")), 700),
+        "current_day_block": trim_text(str(calendar.get("current_day_block", "")), 850),
     }
 
     arc = contract.get("arc_slice", {}) if isinstance(contract.get("arc_slice"), dict) else {}
     result["arc_slice"] = {
         "source_file": arc.get("source_file"),
-        "content": trim_text(str(arc.get("content", "")), 450),
+        "content": trim_text(str(arc.get("content", "")), 600),
     }
 
     location = contract.get("location_slice", {}) if isinstance(contract.get("location_slice"), dict) else {}
@@ -751,51 +773,59 @@ def compact_scene_contract_for_tool(contract: dict[str, Any]) -> dict[str, Any]:
     result["location_slice"] = {
         "location_id": location.get("location_id"),
         "source_files": location.get("source_files", [])[:2] if isinstance(location.get("source_files"), list) else [],
-        "content": {k: trim_text(str(v), 360) for k, v in list(location_content.items())[:2]},
+        "content": {k: trim_text(str(v), 460) for k, v in list(location_content.items())[:2]},
     }
 
     # character load plan
     load_plan = contract.get("character_load_plan", {}) if isinstance(contract.get("character_load_plan"), dict) else {}
     result["character_load_plan"] = {
         "full_character_ids": load_plan.get("full_character_ids", []),
+        "focus_reference_character_ids": (load_plan.get("focus_reference_character_ids", []) or [])[:2],
         "reference_character_ids": (load_plan.get("reference_character_ids", []) or [])[:4],
-        "full_rule": "Use compact runtime summaries only.",
+        "full_rule": "Full and focus-reference characters with runtime_summary may speak/act if scene pressure supports it.",
+        "reference_rule": "If a delayed/reference character is in focus_reference_character_ids, treat them as scene-relevant, not generic background.",
     }
 
     # character slice
     char_slice = contract.get("character_slice", {})
     compact_chars: dict[str, Any] = {}
+    full_ids = set(load_plan.get("full_character_ids", []) or [])
+    focus_ids = set(load_plan.get("focus_reference_character_ids", []) or [])
     if isinstance(char_slice, dict):
-        for cid, data in list(char_slice.items())[:5]:
+        for cid, data in list(char_slice.items())[:6]:
             if not isinstance(data, dict):
                 continue
+            is_full = cid in full_ids
+            is_focus = cid in focus_ids
+            summary_limit = 1300 if is_full else 1000
             compact_chars[cid] = {
                 "character_id": data.get("character_id", cid),
                 "folder": data.get("folder"),
+                "slice_role": "full" if is_full else ("focus_reference" if is_focus else "reference"),
                 "runtime_file": data.get("runtime_file"),
                 "selected_runtime_variant": data.get("selected_runtime_variant"),
-                "runtime_summary": trim_text(str(data.get("runtime_summary", "")), 850),
-                "card_hint": trim_text(str(data.get("card_hint", "")), 220),
+                "runtime_summary": trim_text(str(data.get("runtime_summary", "")), summary_limit),
+                "card_hint": trim_text(str(data.get("card_hint", "")), 260),
                 "variant_rule": data.get("variant_rule"),
             }
             if data.get("goals_hint"):
-                compact_chars[cid]["goals_hint"] = trim_text(str(data.get("goals_hint")), 240)
+                compact_chars[cid]["goals_hint"] = trim_text(str(data.get("goals_hint")), 300)
     result["character_slice"] = compact_chars
 
     # state/knowledge/memory
-    result["character_memory_slice"] = cv(contract.get("character_memory_slice", {}), depth=2, items=3, text_len=130)
-    result["relationship_slice"] = cv(contract.get("relationship_slice", {}), depth=2, items=4, text_len=130)
+    result["character_memory_slice"] = cv(contract.get("character_memory_slice", {}), depth=2, items=5, text_len=190)
+    result["relationship_slice"] = cv(contract.get("relationship_slice", {}), depth=3, items=5, text_len=190)
     result["relationship_behavior_contract"] = {
         "rule": "relationship_slice + behavior_next shape NPC behavior",
         "levels": "trust/tension/respect/curiosity/jealousy/resentment",
     }
-    result["knowledge_slice"] = cv(contract.get("knowledge_slice", {}), depth=2, items=4, text_len=130)
+    result["knowledge_slice"] = cv(contract.get("knowledge_slice", {}), depth=3, items=5, text_len=190)
     result["knowledge_write_contract"] = {"rule": "Save only new seen/heard/said facts and wrong beliefs."}
     result["open_threads_slice"] = cv(contract.get("open_threads_slice", {}), depth=2, items=3, text_len=130)
     result["shared_incidents_slice"] = cv(contract.get("shared_incidents_slice", {}), depth=2, items=3, text_len=130)
 
     # event/energy
-    result["event_engine_slice"] = cv(contract.get("event_engine_slice", {}), depth=2, items=3, text_len=130)
+    result["event_engine_slice"] = cv(contract.get("event_engine_slice", {}), depth=3, items=4, text_len=210)
 
     energy = contract.get("energy_atmosphere_slice", {}) if isinstance(contract.get("energy_atmosphere_slice"), dict) else {}
     active_energy = energy.get("active_character_energy", {})
@@ -803,11 +833,11 @@ def compact_scene_contract_for_tool(contract: dict[str, Any]) -> dict[str, Any]:
         active_energy = {}
     result["energy_atmosphere_slice"] = {
         "academy_rule": energy.get("academy_rule", "Academy scenes must feel populated by energy carriers."),
-        "atmosphere_compact": trim_text(str(energy.get("atmosphere_compact", "")), 620),
-        "classes_compact": trim_text(str(energy.get("classes_compact", "")), 360),
+        "atmosphere_compact": trim_text(str(energy.get("atmosphere_compact", "")), 900),
+        "classes_compact": trim_text(str(energy.get("classes_compact", "")), 480),
         "active_character_energy": {
-            cid: cv(data, depth=1, items=3, text_len=260)
-            for cid, data in list(active_energy.items())[:3]
+            cid: cv(data, depth=2, items=4, text_len=320)
+            for cid, data in list(active_energy.items())[:4]
         },
         "energy_incidents": cv(energy.get("energy_incidents", {}), depth=2, items=2, text_len=110),
         "use_rules": [
@@ -817,29 +847,49 @@ def compact_scene_contract_for_tool(contract: dict[str, Any]) -> dict[str, Any]:
         ],
     }
 
-    # hard gates as tiny contracts
+    # hard gates as balanced compact contracts
     result["scene_assembly_gate"] = {
         "status": "hard_gate",
         "failure_line": "Не удалось собрать scene assembly packet через Action. Без него я не продолжаю игровую сцену.",
         "must_have": ["current_frame", "character_slice", "relationship_slice", "knowledge_slice", "energy_atmosphere_slice"],
     }
     result["response_format_contract"] = {
-        "required": "emoji header + scene + actions + speech options + Akira thoughts",
-        "forbidden": ["technical text", "empty header", "micro-choice endings", "decorative prose"],
+        "required": "emoji header + 7-12 short scene units + actions + speech options + Akira thoughts",
+        "forbidden": ["technical text", "empty header", "short stub", "micro-choice endings", "decorative prose", "invented Akira speech"],
     }
     result["scene_density_contract"] = {
         "target": "7-12 short units",
-        "must": ["world/system motion", "Akira POV", "active NPC reaction", "pressure/change", "real choice"],
+        "must": [
+            "world/system motion",
+            "Akira POV observation",
+            "at least one active/focus NPC reaction or line",
+            "concrete pressure/change",
+            "energy atmosphere detail if in Academy",
+            "real choice/reply/risk ending",
+        ],
+        "anti_null": "Careful action can reduce risk, not erase consequences.",
     }
     result["scene_quality_gate_contract"] = {
-        "rule": "No stub. Complete scene only. NPC dialogue/action + pressure + consequence.",
+        "rule": "No stub. Complete scene only.",
+        "minimum": [
+            "filled header",
+            "NPC action/line in character",
+            "pressure or consequence",
+            "world moves even if Akira is calm",
+            "choices tied to current pressure",
+        ],
+        "rewrite_if": ["too short", "generic", "only observing", "no NPC reaction", "no real choice"],
     }
     result["scene_progress_contract"] = {
         "rule": "Do not stop on micro-actions; auto-advance to real choice/reply/risk.",
-        "forbidden_micro_choices": ["press button", "wait instructions", "look panel", "take card", "continue observing"],
+        "forbidden_micro_choices": ["press button", "wait instructions", "look panel", "take card", "walk two steps", "continue observing"],
+        "real_choices": ["reply/silence", "obey/challenge/bypass", "hide/show energy", "protect/cut off Livia", "follow/delay/exploit mistake"],
+        "auto_advance_examples": ["registration -> result + consequence + next route", "coffee -> take coffee + social beat"],
     }
     result["prose_style_contract"] = {
         "rule": "clear factual prose; no decorative literary contrast",
+        "prefer": ["visible facts", "physical effects", "specific actions", "system/staff reaction", "consequence"],
+        "avoid": ["контрастируя с серостью", "воздух будто задержал дыхание", "словно сцена подстроилась"],
         "example": "Bad: 'контрастируя с серостью'; Good: 'заметны в холодном свете панели'.",
     }
     result["npc_autonomy_contract"] = {
@@ -1800,7 +1850,8 @@ def build_energy_atmosphere_slice(session_id: str, current_state: dict[str, Any]
 
 def build_scene_contract(session_id: str, current_state: dict[str, Any], mode: str) -> dict[str, Any]:
     selected = selected_character_ids(current_state)
-    scene_ids = unique(selected["full"])
+    focus_reference_ids = focused_reference_character_ids(current_state, selected, max_focus=2)
+    scene_ids = unique(selected["full"] + focus_reference_ids)
     arc_id = current_state.get("current_arc_id") or "arc_001_academy_start"
     arc_file = f"story/arcs/{arc_id}.yaml"
     location_id = current_state.get("current_location_id") or "loc_academy_main"
@@ -1825,11 +1876,13 @@ def build_scene_contract(session_id: str, current_state: dict[str, Any], mode: s
         },
         "character_load_plan": {
             "full_character_ids": selected["full"],
+            "focus_reference_character_ids": focus_reference_ids,
             "reference_character_ids": selected["reference"][:6],
             "full_rule": "Use compact runtime summaries from character_slice for POV/active/nearby characters.",
-            "reference_rule": "Mentioned/scheduled/delayed characters use runtime summaries only if they enter or matter.",
+            "focus_reference_rule": "Focus references get runtime summaries because they may drive the next beat.",
+            "reference_rule": "Other mentioned/scheduled/delayed characters stay lightweight until they enter or matter.",
         },
-        "character_slice": build_character_slice(session_id, current_state, selected["full"]),
+        "character_slice": build_character_slice(session_id, current_state, scene_ids),
         "character_memory_slice": build_character_memory_slice(session_id, scene_ids),
         "relationship_slice": build_relationship_slice(session_id, scene_ids),
         "relationship_behavior_contract": relationship_behavior_contract(),
@@ -1869,7 +1922,7 @@ def root() -> dict[str, Any]:
     return {
         "status": "ok",
         "project": PROJECT_SLUG,
-        "version": "3.4.8",
+        "version": "3.4.9",
         "actions_schema": "/openapi-actions.json",
         "health": "/health",
         "debug_volume": "/debug/volume",
@@ -1878,7 +1931,7 @@ def root() -> dict[str, Any]:
 
 @app.get("/health")
 def health() -> dict[str, Any]:
-    return {"success": True, "project": PROJECT_SLUG, "version": "3.4.8", "time": utc_now()}
+    return {"success": True, "project": PROJECT_SLUG, "version": "3.4.9", "time": utc_now()}
 
 
 @app.get("/debug/volume")
@@ -1938,6 +1991,16 @@ def get_turn_contract(session_id: str, req: TurnContractRequest) -> dict[str, An
         "mode": req.mode,
         "is_game_turn": req.mode == "play",
         "current_state": current_state_compact,
+        "current_state_summary": {
+            "active_character_ids": as_id_list(current_state.get("active_character_ids")),
+            "nearby_character_ids": as_id_list(current_state.get("nearby_character_ids")),
+            "mentioned_character_ids": as_id_list(current_state.get("mentioned_character_ids")),
+            "scheduled_character_ids": as_id_list(current_state.get("scheduled_character_ids")),
+            "delayed_character_ids": as_id_list(current_state.get("delayed_character_ids")),
+            "akira_runtime_variant": get_akira_runtime_variant(current_state),
+            "location_id": current_state.get("current_location_id"),
+            "time": current_state.get("current_time"),
+        },
         "scene_contract": scene_contract,
         "required_files": required_files[:32],
         "required_file_count": len(required_files),
@@ -2106,7 +2169,7 @@ def openapi_actions() -> dict[str, Any]:
     server = PUBLIC_BASE_URL or "https://your-service.up.railway.app"
     return {
         "openapi": "3.1.0",
-        "info": {"title": f"{PROJECT_SLUG} GPT Actions", "version": "3.4.8"},
+        "info": {"title": f"{PROJECT_SLUG} GPT Actions", "version": "3.4.9"},
         "servers": [{"url": server}],
         "paths": {
             "/health": {

@@ -1,98 +1,87 @@
 calendar_id: "academy_start"
 year: "1198"
-source: "adapted_from_academy_1198_calendar"
+source: "academy_1198_runtime_calendar"
 start_date: "1198-08-15"
 
 calendar_rules:
-  - "This is a meaningful-event calendar, not a daily diary."
-  - "Do not write every day unless the day creates an event, consequence, relationship, check, reputation shift or open thread."
-  - "If the player asks to skip time, move to the nearest meaningful event after checking open threads and current state."
-  - "Calendar events guide pressure and availability; current runtime state decides exact scene entry."
-
-calendar_reading_protocol:
-  selection:
-    - "Use current_state.current_day_id first."
-    - "If current_day_id is missing, use current_state.current_date."
-    - "For a normal scene, read only the current day block."
-    - "Do not load or summarize the whole calendar unless the user asks for calendar audit or time planning."
-  event_priority:
-    - "Hard required events block time skip until progressed or resolved."
-    - "Required events go before optional events."
-    - "Optional events can be used only if runtime state, open threads, pacing or player action supports them."
-  beat_usage:
-    - "Beats are scene pressure and order, not prose to copy."
-    - "summary is the event goal, not the text of the scene."
-    - "characters in a beat indicate who can enter or matter; they do not force everyone to speak immediately."
-    - "delayed or later characters become active only when the current beat reaches their entry or state moves them into scene."
-  completion:
-    - "After a scene, update current beat/event progress when meaningful."
-    - "If a blocking event progressed enough, update completion_status or open_threads."
-    - "Do not repeat the same entry beat after it is resolved."
-  improvisation:
-    - "Improvise details through location, character cards and state."
-    - "Do not create major calendar events without saving them as open thread or state change."
+  - "Календарь задаёт рамку дня, доступных персонажей и запреты, но не пишет сцену вместо ИИ."
+  - "ИИ сам делает интересные сцены через действия NPC, социальные крючки, слухи, рейтинг, отношения и последствия."
+  - "Если между важными датами пусто и игрок не просит пропуск, можно создать малое событие из текущего места, персонажей и открытых нитей."
+  - "Не превращать календарь в пошаговую инструкцию."
+  - "Не повторять beat после сохранённого прогресса."
 
 days:
   academy_day_001:
     date: "1198-08-15"
     day_status: "hard_event"
-    title: "Старт Академии"
-    source_note: "academy start: social field, first system pressure, first hooks"
-    required_events:
-      - event_id: "event_academy_start"
-        type: "main"
-        required: true
-        title: "Первый день Академии"
-        scene_goal: "Ввести Акиру в живое социальное поле Академии: поток новичков, чужое внимание, первые ограничения, первые слухи и реакцию Ливии."
-        pressure: "Академия смотрит, сортирует и сравнивает; люди реагируют раньше, чем система успевает всё объяснить."
-        summary: "Акира и Ливия входят в Академию; правила проявляются через людей, взгляды, доступ, шум, сбои и социальные крючки."
-        location_id: "loc_academy_main"
-        required_characters: ["char_akira", "char_livia"]
-        blocks_time_skip: true
-        flexibility: "fixed"
-        completion_status: "open"
-        entry_order:
-          - "char_akira and char_livia start as active if current_state says so."
-          - "char_kir enters after first entry pressure."
-          - "char_kiara gets first visible social trace after the field is visible."
-        completion_update:
-          - "first Academy social pressure shown"
-          - "one system/access pressure shown through action"
-          - "at least one gossip, rating, energy or relationship hook opened"
-        beats:
-          - beat_id: "beat_001_akira_livia_entry"
-            characters: ["char_akira", "char_livia"]
-            scene_goal: "Показать вход как первое столкновение с системой, чужим вниманием и социальной средой."
-            pressure: "Поток новичков, взгляды, выбор позиции, первые ограничения, реакция Ливии."
-            summary: "Акира и Ливия входят в поток новичков вместе; Ливия активна, но не говорит за Акиру."
-          - beat_id: "beat_002_system_pressure"
-            characters: ["char_akira", "char_livia"]
-            scene_goal: "Показать не процедуру, а давление системы через доступ, реакцию сотрудников и поведение толпы."
-            pressure: "Сотрудник, браслет, экран или поток новичков меняют ритм сцены; Акира видит, как контроль работает на людях."
-            summary: "Системное давление проявляется через действие, а не через инструкцию регистрации."
-          - beat_id: "beat_003_kir_late_entry"
-            characters: ["char_kir"]
-            timing: "after first entry pressure"
-            scene_goal: "Ввести Кира как живого участника дня, а не справочную карточку."
-            pressure: "Он появляется позже, немного сбивая порядок или внимание вокруг."
-            summary: "Кир появляется позже, будто задержался или пришёл из другого потока."
-          - beat_id: "beat_004_kiara_first_trace"
-            characters: ["char_kiara"]
-            timing: "after the Academy social field is visible"
-            scene_goal: "Дать Киаре первый социальный след без превращения её в справочник."
-            pressure: "Киара заметна как человек, вокруг которого уже есть внимание и позиция."
-            summary: "Киара получает первый социальный след как заметная курсантка и будущая соперница Ливии."
-        possible_later_same_day:
-          - character_id: "char_haru"
-            use: "может появиться через шумную компанию, площадку, столовую или группу заметных курсантов"
-          - character_id: "char_raiden"
-            use: "может быть замечен как холодная социальная точка рядом с Хару, не как первый центр сцены"
-    optional_events:
-      - event_id: "event_uniform_and_dorm_assignment"
-        type: "academy_logistics"
-        title: "Форма и заселение"
-        scene_goal: "Показать бытовые правила Академии через выдачу, размещение и социальное распределение."
-        pressure: "Очереди, размеры формы, комнаты, чужие взгляды, первый быт."
-        summary: "Выдача формы, размещение, первые бытовые правила и социальное распределение."
-        allowed_if: "after event_academy_start progresses"
-    forbidden: []
+    title: "Поступление в Академию"
+    day_brief: "Поступление, регистрация, первое распределение, заселение и социальные крючки."
+
+    director_task: >
+      Играть Академию как живое поле носителей энергии: поток новичков, сотрудники,
+      браслеты, экраны, чужие взгляды, мелкие сбои контроля у других студентов,
+      первые слухи, рейтинг и выбор позиции Акиры. Не делать сухую экскурсию.
+
+    active_start: ["char_akira", "char_livia"]
+    near_start: ["char_livia"]
+
+    possible_active_today:
+      - character_id: "char_kir"
+        use: "может войти после первого давления регистрации"
+      - character_id: "char_kiara"
+        use: "может дать первый социальный след после появления поля Академии"
+      - character_id: "char_haru"
+        use: "может появиться позже через шумную компанию, площадку, столовую или заметных курсантов"
+      - character_id: "char_raiden"
+        use: "может быть замечен позже рядом с Хару, не как первый центр сцены"
+
+    must_do:
+      - "Показать поступление и регистрацию через живые действия, а не справку."
+      - "Показать Ливию рядом: она активная подруга, не гид и не фон."
+      - "Показать Академию носителей энергии через малые фоновые проявления у других студентов."
+      - "Открыть хотя бы один крючок: слух, рейтинг, внимание сотрудника, конфликт, отношение, Кир/Киара trace или бытовое правило."
+      - "Доводить сцену до реального выбора: ответить, промолчать, спровоцировать, задержаться, пойти по маршруту, вмешаться, защитить или одёрнуть Ливию."
+
+    allowed_background_energy:
+      - "кто-то греет стакан пальцами"
+      - "у раздражённого новичка белеет дыхание"
+      - "браслет у кого-то мигает от малого скачка"
+      - "сотрудник коротко пресекает демонстрацию"
+      - "пахнет озоном, холодным металлом, горячей пылью или палёной тканью"
+
+    akira_energy_on_15_august:
+      status: "hidden_at_start"
+      rule: "Не делать автоматическую проверку, уточнение или раскрытие энергии Акиры на обычной регистрации."
+      allowed_only_if:
+        - "игрок прямо выбирает энергетический отклик Акиры"
+        - "сцена дошла до отдельной официальной проверки"
+        - "state уже содержит активную проблему энергии Акиры"
+        - "NPC имеет сохранённый источник знания и требует проверку"
+      if_minimal_response: "Можно показать малый след, задержку, серую пометку или внимание сотрудника, но не называть полный тип и не делать публичное раскрытие."
+      forbidden:
+        - "система сразу уточнила пространственную энергию Акиры"
+        - "energy clarification как главное первое событие дня"
+        - "студенты знают тип энергии Акиры без источника"
+
+    beats:
+      - beat_id: "entry_and_registration"
+        use: "вход, очередь, документы, браслеты, сотрудники, внимание к волосам, реакция Ливии"
+      - beat_id: "first_social_hooks"
+        use: "слухи, рейтинг, Kiara trace, Kir entry, реакция новичков или сотрудников"
+      - beat_id: "settling_and_route"
+        use: "маршрут, форма, первичный зал, общежитие или кофе; не стопориться на микрошаге"
+
+    optional_later_same_day:
+      - event_id: "uniform_and_dorm_assignment"
+        use: "форма, размещение, комнаты, чужие взгляды, первые соседства"
+      - event_id: "cafeteria_or_coffee"
+        use: "не кнопка автомата, а место, люди, разговоры, кто рядом, что услышали"
+      - event_id: "first_group_attention"
+        use: "Киара, Хару, Райден или старшие курсанты могут стать заметными, но не все сразу"
+
+    forbidden:
+      - "автоматическая проверка энергии Акиры на обычной регистрации"
+      - "публичное раскрытие полного типа энергии Акиры в первый входной beat"
+      - "сцена-гид по Академии вместо живого действия"
+      - "микровыборы: нажать кнопку, ждать инструкций, смотреть на панель, взять карточку"
+      - "все возможные персонажи в одной сцене без причины"
