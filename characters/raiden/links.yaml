@@ -1,10 +1,44 @@
 character_id: "char_raiden"
+schema: "character_links_v1"
 
 relationships:
-  pair_ids: []
-  required_when_together:
-    - "state/relationships.json"
-  required_when_mentioned: []
+  - target_id: "char_haru"
+    status: "closest_friend_social_pair"
+    visibility: "public_social_training_field"
+    start_use: >
+      Хару и Райден — устойчивая академическая связка. Они часто появляются вместе или в одной зоне:
+      коридоры, столовая, площадка, тренировки, общие сборы. Если в публичной/социальной/тренировочной
+      сцене вводится Райден, Хару часто nearby/reference, если state или расписание не дают причину быть отдельно.
+    current_dynamic: "close, rough, loyal, contrast pair"
+    constraints:
+      - "Do not make Haru Raiden's weak sidekick."
+      - "Do not make Raiden softened automatically by Haru."
+      - "Do not separate them without scene/state reason when one enters a public social field."
+
+  - target_id: "char_kiara"
+    status: "social_orbit_interest"
+    visibility: "public_social_field"
+    start_use: >
+      Киара часто держится рядом с социальной орбитой Хару/Райдена. Райден интересен ей именно тем,
+      что его трудно сдвинуть привычным контролем. Она не обязана быть рядом всегда, но часто выбирает
+      видимое место возле сильных/заметных курсантов.
+    current_dynamic: "interest through loss of control"
+    constraints:
+      - "Raiden is not first scene center by default."
+      - "Kiara does not know the reason for his boundaries."
+      - "Do not make Kiara's interest automatically romantic."
+
+  - target_id: "char_akira"
+    status: "future_attention_through_scenes"
+    visibility: "not_automatic_at_start"
+    start_use: >
+      Пока связь не установлена runtime-state, не вести себя так, будто между Райденом и Акирой уже есть близость.
+      Интерес появляется через сцены: внимание, пауза, проверка, реакция на самообладание.
+    current_dynamic: "not fully active yet"
+    constraints:
+      - "Do not write Akira's reaction for the player."
+      - "Do not reveal hidden lore."
+      - "Do not make Raiden jealous without relationship_state."
 
 shared_incidents:
   witnessed: []
@@ -20,8 +54,9 @@ canon_files:
     - "characters/raiden/voice.md"
   hidden:
     - "characters/raiden/past.md"
-  relationship_lore: []
-  location_lore: []
+  relationship_lore:
+    - "characters/haru/links.yaml"
+    - "characters/kiara/links.yaml"
   energy_lore:
     - "characters/raiden/energy.yaml"
 
@@ -34,4 +69,4 @@ runtime_refs:
 loading_hints:
   load_past_if: ["scene asks about past", "shared incident references past", "character is confronted with known trigger"]
   load_energy_if: ["training", "combat", "energy check", "temperature drop", "ability is mentioned"]
-  load_habits_if: ["close interaction", "romantic or hostile tension", "body language matters"]
+  load_habits_if: ["close interaction", "romantic or hostile tension", "body language matters", "Haru is present", "Kiara is present"]

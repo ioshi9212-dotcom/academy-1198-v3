@@ -10,28 +10,56 @@ This format has highest priority for scene output. If the answer is not in this 
 
 A play response contains only:
 
-1. emoji header;
-2. scene body;
-3. choice block;
-4. speech options;
-5. POV thoughts.
+1. separator line;
+2. emoji header;
+3. separator line;
+4. scene body;
+5. separator line;
+6. choice block;
+7. speech options;
+8. POV thoughts;
+9. separator line.
 
 No assistant commentary before or after the scene.
 
 ## Header
 
-Every play scene starts with this emoji header format:
+Every play scene starts with this exact wrapper:
 
 ```text
+━━━━━━━━━━━━━━━━━━━━
 📅 15 августа сб 1198
 🕒 Утро, около 08:40
 📍 Место: Академия Астрейн, входная зона
 🌤 Погода: переменная облачность, 22°C
 🫀 Состояние Акиры: собрана
-🎒 При себе / рядом: толстовка, джинсы, сумка с одеждой, документы, телефон, волосы распущены, Ливия
+🎒 При себе / рядом: чёрная рубашка, бордовый пиджак Академии, чёрная юбка-шорты, ботинки, сумка с одеждой, документы, телефон, волосы распущены, Ливия
+━━━━━━━━━━━━━━━━━━━━
 ```
 
-Use values from `scene_contract.current_frame.header_values`, `scene_contract.header_contract`, and `current_state`.
+Use values from `current_frame.header_values`, `header_contract`, and `current_state`.
+
+Hard rules:
+
+- do not remove separator lines `━━━━━━━━━━━━━━━━━━━━`;
+- do not remove emoji markers;
+- do not replace the emoji header with a title/freeform prose;
+- do not output an empty header;
+- if a header field is empty, rebuild from current_state rather than deleting the header.
+
+## Start outfit / carried items for Akira
+
+At the start of the academy arc, Akira is wearing / carrying:
+
+- чёрная рубашка;
+- бордовый пиджак Академии;
+- чёрная юбка-шорты;
+- ботинки;
+- сумка с одеждой;
+- документы;
+- телефон.
+
+This is her current start state, not a generic academy uniform example.
 
 ## Scene body
 
@@ -129,6 +157,7 @@ Every play scene ends with:
 Use 2-4 action options and 2-4 short speech options.
 
 For Akira:
+
 - short;
 - dry;
 - observant;
@@ -141,11 +170,15 @@ Thoughts must be short, concrete and in character.
 ## Self-check before sending
 
 Before sending, check:
+
+- separator line exists before header;
 - emoji header exists;
+- separator line exists after header;
 - no assistant meta-commentary exists;
 - descriptions are italic separate paragraphs;
 - dialogue uses bold speaker + long dash;
 - stage notes are short, italic and in parentheses;
 - no NPC thoughts as facts;
 - no direct POV thoughts inside scene body;
-- bottom choices/thoughts do not use third-person inner stance.
+- bottom choices/thoughts do not use third-person inner stance;
+- ending block is wrapped in separator lines.

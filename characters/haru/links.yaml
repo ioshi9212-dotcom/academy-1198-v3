@@ -4,73 +4,18 @@ schema: "character_links_v1"
 relationships:
   - target_id: "char_raiden"
     status: "closest_friend"
-    visibility: "active_when_haru_enters"
-    start_use: "Хару и Райден — грубая, живая, многолетняя связка. Хару может вытаскивать Райдена в компанию, спор, баскетбол или тренировку."
+    visibility: "active_when_haru_enters_or_public_social_scene"
+    start_use: "Хару и Райден — грубая, живая, многолетняя связка. В Академии они часто появляются вместе или в одной зоне; если Хару входит в публичную/социальную/тренировочную сцену, Райден часто nearby/reference, если нет причины отсутствия."
     current_dynamic: "close, rough, loyal, not polished"
     constraints:
       - "Haru is not Raiden's weak sidekick."
       - "Raiden is not softened automatically by Haru."
-      - "Their bond should not be broken without scene reason."
 
   - target_id: "char_kiara"
     status: "social_orbit_flirt_game"
     visibility: "public_social_field"
-    start_use: "Киара может держаться рядом с Хару и Райденом; Хару может отвечать ей азартом и шуткой, но не быть полностью управляемым."
+    start_use: "Киара часто держится рядом с Хару и Райденом; Хару может отвечать ей азартом и шуткой, но не быть полностью управляемым."
     current_dynamic: "playful social tension"
     constraints:
       - "Do not make Haru fully controlled by Kiara."
       - "Do not make Kiara's interest automatically romantic."
-
-  - target_id: "char_livia"
-    status: "possible_flirt_tension"
-    visibility: "first_day_or_later_if_scene_supports"
-    start_use: "Ливия может обратить внимание на Хару и флиртовать с ним; Хару может легко ответить, не сразу понимая цену внимания."
-    current_dynamic: "potential social/emotional tension"
-    constraints:
-      - "Do not make Haru and Livia a pair automatically."
-      - "Do not make Haru empty or careless without consequences."
-
-  - target_id: "char_akira"
-    status: "future_interest_through_scenes"
-    visibility: "not_automatic_at_start"
-    start_use: "Хару может познакомиться с Акирой в день прибытия или первые дни, но её внимание надо завоёвывать сценами."
-    current_dynamic: "not fully active yet"
-    constraints:
-      - "Do not write Akira's reaction for the player."
-      - "Do not make Haru's interest flat or automatic."
-      - "Do not reveal hidden lore."
-
-  - target_id: "char_kir"
-    status: "future_teasing_or_training_tension"
-    visibility: "inactive_until_scene"
-    start_use: "Кир может ломать красивый эффект Хару сухими замечаниями; Хару отвечает вызовом, смехом или раздражением."
-    current_dynamic: "future friction / useful tension"
-    constraints:
-      - "Do not make them automatic enemies."
-
-shared_incidents:
-  participated: []
-  witnessed: []
-  heard_about: []
-
-canon_files:
-  public:
-    - "old_repo: characters/main/haru_foster.md"
-    - "old_repo: characters/habits/haru_habits.md"
-    - "old_repo: characters/powers/haru_heat_fire.md"
-    - "old_repo: characters/knowledge/haru_knowledge.md"
-    - "old_repo: characters/past/haru_past.md"
-    - "prequel_repo: characters/main/haru_foster.md"
-    - "prequel_repo: characters/character_id_index.md"
-    - "prequel_repo: gpt/locks/character_presence_rotation_lock.md"
-
-runtime_refs:
-  character_memory: "state/character_memory/char_haru.json"
-  focused_relationships: "state/relationships.json"
-  open_threads: "state/open_threads.json"
-  shared_incidents: "state/shared_incidents.json"
-
-loading_hints:
-  load_energy_if: ["training", "combat", "energy check", "heat rises", "fire or temperature matters"]
-  load_habits_if: ["social scene", "basketball", "body language matters", "Raiden is present"]
-  load_past_if: ["mother", "fire", "family", "Hana", "civilian death", "trauma trigger"]

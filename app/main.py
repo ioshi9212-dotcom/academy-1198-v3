@@ -33,7 +33,7 @@ MAX_FILE_CHARS = int(os.getenv("MAX_FILE_CHARS", "18000"))
 MAX_SCENE_SLICE_CHARS = int(os.getenv("MAX_SCENE_SLICE_CHARS", "2200"))
 RUNTIME_SUMMARY_CHARS = int(os.getenv("RUNTIME_SUMMARY_CHARS", "1250"))
 
-app = FastAPI(title=f"{PROJECT_SLUG} GPT Actions API", version="3.5.8")
+app = FastAPI(title=f"{PROJECT_SLUG} GPT Actions API", version="3.5.9")
 
 RESERVED_SESSION_IDS = {"default", "new", "none", "null", "undefined", "session"}
 
@@ -753,7 +753,7 @@ def compact_scene_contract_for_tool(contract: dict[str, Any]) -> dict[str, Any]:
             "🎒 При себе / рядом: {context_human}",
         ],
         "omit_empty_lines": True,
-        "rules_short": "🫀 state only; 🎒 visible items/clothes/hair/nearby; no dry/wet unless relevant.",
+        "rules_short": "Header must have separators before/after and emoji lines. 🫀 state only; 🎒 Akira start outfit/items + hair/nearby; no dry/wet unless relevant.",
     }
 
     # compact scene sources
@@ -1630,11 +1630,14 @@ def header_contract() -> dict[str, Any]:
         "omit_empty_lines": True,
         "rules": [
             "Use scene_contract.current_frame.header_values.",
-            "Keep the header in this emoji format.",
+            "Header MUST be wrapped with separator lines: ━━━━━━━━━━━━━━━━━━━━ before and after.",
+            "Keep emoji markers exactly: 📅 🕒 📍 🌤 🫀 🎒.",
+            "Do not replace emoji header with a title/freeform prose.",
             "🫀 is physical/internal state only: fatigue, hunger, pain, stress, injuries, short notes.",
-            "🎒 is visible clothing/items/nearby objects: hoodie, jeans, bag, documents, phone, hair position, people nearby.",
+            "🎒 is visible clothing/items/nearby objects: Akira start outfit/items, hair position, people nearby.",
+            "Akira start outfit/items: чёрная рубашка, бордовый пиджак Академии, чёрная юбка-шорты, ботинки, сумка с одеждой, документы, телефон.",
             "Do not write dry/wet unless it is scene-relevant.",
-            "If context_human is empty, omit the 🎒 line.",
+            "If context_human is empty, rebuild from current_state rather than removing the header.",
         ],
     }
 
@@ -1643,13 +1646,17 @@ def response_format_contract() -> dict[str, Any]:
     return {
         "priority": "highest_for_scene_output",
         "scene_header_required": True,
+        "separator_required": True,
+        "separator_line": "━━━━━━━━━━━━━━━━━━━━",
         "meta_layer_forbidden": True,
         "dialogue_format": "**Имя или видимый дескриптор** — Реплика. (*короткая ремарка*)",
         "description_format": "*Описание действия/окружения отдельной строкой курсивом.*",
         "must_end_with": [
+            "━━━━━━━━━━━━━━━━━━━━ before choice block",
             "Что можно сделать: 1/2/3",
             "Что сказать: three quoted line options",
             "Мысли Акиры: three short true POV thoughts",
+            "━━━━━━━━━━━━━━━━━━━━ after thoughts",
         ],
         "forbidden": [
             "technical commentary",
@@ -1658,6 +1665,8 @@ def response_format_contract() -> dict[str, Any]:
             "placeholder header fields",
             "Что делает Акира? instead of options",
             "freeform title header",
+            "missing separator lines around header/ending",
+            "missing emoji markers in header",
             "summary instead of scene",
             "generic polite line options for Akira v2",
         ],
@@ -2011,7 +2020,7 @@ def root() -> dict[str, Any]:
     return {
         "status": "ok",
         "project": PROJECT_SLUG,
-        "version": "3.5.8",
+        "version": "3.5.9",
         "actions_schema": "/openapi-actions.json",
         "health": "/health",
         "debug_volume": "/debug/volume",
@@ -2020,7 +2029,7 @@ def root() -> dict[str, Any]:
 
 @app.get("/health")
 def health() -> dict[str, Any]:
-    return {"success": True, "project": PROJECT_SLUG, "version": "3.5.8", "time": utc_now()}
+    return {"success": True, "project": PROJECT_SLUG, "version": "3.5.9", "time": utc_now()}
 
 
 @app.get("/debug/volume")
@@ -2206,6 +2215,7 @@ def classic_required_checks(current_state: dict[str, Any]) -> list[str]:
         "Livia is old close friend and active social pressure, not guide.",
         "Academy has energy carriers in background, but no automatic Akira reveal.",
         "Use academy_uniform_contract for academy clothing; do not default Akira to generic skirt/tie/shoes.",
+        "Use social_orbit_contract for Haru/Raiden/Kiara presence in public/social/training scenes.",
         "After meaningful scene, call applyTurnResultSimple and save important changes.",
         "Rewrite before sending if format, voice, knowledge, or pacing is wrong.",
     ]
@@ -2220,6 +2230,8 @@ def classic_canon_locks(current_state: dict[str, Any]) -> list[str]:
         "akira_hidden_nature_remains_secret: природа Акиры остаётся скрытой; не раскрывать датчиком/narration/NPC без earned source.",
         "academy_energy_background: Академия для носителей энергии; фоновые проявления допустимы, но не power-showcase без причины.",
         "academy_uniform_variation: базовая форма бордовая с тёмной рубашкой и золотыми деталями; студенты часто нарушают идеал формы по характеру/образу.",
+        "haru_raiden_social_pair: Хару и Райден в Академии часто появляются парой или в одной социальной зоне; если вводится один, второй часто nearby/reference, если нет причины отсутствия.",
+        "kiara_social_orbit: Киара часто держится рядом с орбитой Хару/Райдена в публичных сценах, но не обязана быть с ними всегда.",
         "akira_uniform_specific: Акира носит бордовый пиджак, чёрную рубашку, чёрную юбку-шорты, массивные высокие ботинки и без галстука.",
         "no_auto_akira_energy_check_aug15: 15 августа обычная регистрация не раскрывает/уточняет энергию Акиры автоматически.",
         "energy_privacy_aug31: 31 августа не афишировать типы энергии студентов, включая Акиру, без официального основания.",
@@ -2383,6 +2395,23 @@ def compact_output_format_for_response() -> dict[str, Any]:
 
 
 
+
+def compact_social_orbit_contract() -> dict[str, Any]:
+    return {
+        "haru_raiden": {
+            "rule": "Haru and Raiden are a stable academy social pair/orbit: often together or in the same nearby zone in public, training, cafeteria, corridor and basketball scenes.",
+            "use": "If Haru enters a public/social/training scene, consider Raiden nearby/reference unless state/schedule gives a reason he is absent. If Raiden enters such a scene, consider Haru nearby/reference unless reason absent.",
+            "limits": "Do not make Haru a sidekick. Do not make Raiden softened by Haru automatically. Do not force them into private/intimate scenes where state says they are separate.",
+        },
+        "kiara_orbit": {
+            "rule": "Kiara often keeps near Haru/Raiden's visible social orbit, especially when status, attention, flirting, rivalry or public control matters.",
+            "use": "She is not always with them, but she often chooses a visible place near strong/noticeable students. Use her as reference/nearby when the scene supports public social pressure.",
+            "limits": "Do not make Kiara always present. Do not make her interest automatically romantic. Do not make Akira jealous without player action.",
+        },
+    }
+
+
+
 def compact_academy_uniform_contract() -> dict[str, Any]:
     return {
         "palette": "Academy uniform base palette: dark burgundy, black/dark shirt, gold details.",
@@ -2511,6 +2540,7 @@ def get_turn_contract(session_id: str, req: TurnContractRequest) -> dict[str, An
         "output_format_contract": compact_output_format_for_response(),
         "scene_style_contract": compact_scene_style_contract(),
         "academy_uniform_contract": compact_academy_uniform_contract(),
+        "social_orbit_contract": compact_social_orbit_contract(),
         "npc_dialogue_contract": compact_npc_dialogue_contract(),
         "npc_registry_contract": compact_npc_registry_contract(),
         "allowed_new_facts_this_turn": classic_contract["allowed_new_facts_this_turn"][:5],
@@ -2683,7 +2713,7 @@ def openapi_actions() -> dict[str, Any]:
     server = PUBLIC_BASE_URL or "https://your-service.up.railway.app"
     return {
         "openapi": "3.1.0",
-        "info": {"title": f"{PROJECT_SLUG} GPT Actions", "version": "3.5.8"},
+        "info": {"title": f"{PROJECT_SLUG} GPT Actions", "version": "3.5.9"},
         "servers": [{"url": server}],
         "paths": {
             "/health": {
