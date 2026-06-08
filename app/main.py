@@ -33,7 +33,7 @@ MAX_FILE_CHARS = int(os.getenv("MAX_FILE_CHARS", "18000"))
 MAX_SCENE_SLICE_CHARS = int(os.getenv("MAX_SCENE_SLICE_CHARS", "2200"))
 RUNTIME_SUMMARY_CHARS = int(os.getenv("RUNTIME_SUMMARY_CHARS", "1250"))
 
-app = FastAPI(title=f"{PROJECT_SLUG} GPT Actions API", version="3.5.5")
+app = FastAPI(title=f"{PROJECT_SLUG} GPT Actions API", version="3.5.7")
 
 RESERVED_SESSION_IDS = {"default", "new", "none", "null", "undefined", "session"}
 
@@ -640,7 +640,7 @@ def normalize_akira_variant(value: Any) -> str:
         return "version_2_poisonous"
     if raw in {"version_1_cold", "v1", "version_1", "cold_observing", "cold", "холодная"}:
         return "version_1_cold"
-    return "version_1_cold"
+    return "version_2_poisonous"
 
 
 def get_akira_runtime_variant(current_state: dict[str, Any]) -> str:
@@ -655,7 +655,7 @@ def get_akira_runtime_variant(current_state: dict[str, Any]) -> str:
         for key in ("akira_runtime_variant", "akira_behavior_version", "akira_mask"):
             if key in story_flags:
                 return normalize_akira_variant(story_flags.get(key))
-    return "version_1_cold"
+    return "version_2_poisonous"
 
 
 def apply_user_variant_selection(session_id: str, current_state: dict[str, Any], user_input: str | None) -> dict[str, Any]:
@@ -697,7 +697,7 @@ def normalize_current_akira_variant_state(session_id: str, current_state: dict[s
     if not isinstance(current_state, dict):
         return current_state
 
-    selected = "version_2_poisonous" if state_has_akira_v2_marker(current_state) else get_akira_runtime_variant(current_state)
+    selected = get_akira_runtime_variant(current_state)
 
     current_state.setdefault("character_status", {})
     current_state["character_status"].setdefault("char_akira", {})
@@ -2011,7 +2011,7 @@ def root() -> dict[str, Any]:
     return {
         "status": "ok",
         "project": PROJECT_SLUG,
-        "version": "3.5.5",
+        "version": "3.5.7",
         "actions_schema": "/openapi-actions.json",
         "health": "/health",
         "debug_volume": "/debug/volume",
@@ -2020,7 +2020,7 @@ def root() -> dict[str, Any]:
 
 @app.get("/health")
 def health() -> dict[str, Any]:
-    return {"success": True, "project": PROJECT_SLUG, "version": "3.5.5", "time": utc_now()}
+    return {"success": True, "project": PROJECT_SLUG, "version": "3.5.7", "time": utc_now()}
 
 
 @app.get("/debug/volume")
@@ -2066,6 +2066,8 @@ def build_classic_required_files(current_state: dict[str, Any], mode: str) -> li
         "gpt/locks/npc_dialogue_intervention_lock.md",
         "gpt/locks/tiny_profile_not_scene_style_lock.md",
         "gpt/locks/voice_fit_lock.md",
+        "gpt/locks/akira_v2_default_lock.md",
+        "gpt/locks/akira_v2_social_mask_lock.md",
         "gpt/locks/markdown_dialogue_format_lock.md",
         "gpt/locks/energy_privacy_lock.md",
         "gpt/locks/academy_energy_background_lock.md",
@@ -2199,7 +2201,8 @@ def classic_required_checks(current_state: dict[str, Any]) -> list[str]:
         "No micro-choice endings: auto-advance to real decision/reply/risk.",
         "Use day_contract as frame, not as rigid script.",
         "Do not force all possible characters into one scene.",
-        "If Akira v2, speech options must be poisonous/lazy/controlled, not neutral.",
+        "Akira default runtime is v2: speech options must be poisonous/lazy/controlled, not neutral.",
+        "Akira v2 may use social mask only when player action supports it.",
         "Livia is old close friend and active social pressure, not guide.",
         "Academy has energy carriers in background, but no automatic Akira reveal.",
         "After meaningful scene, call applyTurnResultSimple and save important changes.",
@@ -2210,6 +2213,7 @@ def classic_required_checks(current_state: dict[str, Any]) -> list[str]:
 def classic_canon_locks(current_state: dict[str, Any]) -> list[str]:
     return [
         "livia_old_friend: Ливия — старая близкая подруга Акиры, не новая знакомая и не гид.",
+        "akira_default_runtime_v2: основная runtime-версия Акиры сейчас version_2_poisonous; v1 хранится как legacy/cold backup, но не используется по умолчанию.",
         "akira_variant_lock: использовать только выбранную runtime-версию Акиры.",
         "akira_v2_voice: Акира v2 короткая, ленивая на поверхности, ядовитая, контролирующая, без мягкого дефолта.",
         "akira_hidden_nature_remains_secret: природа Акиры остаётся скрытой; не раскрывать датчиком/narration/NPC без earned source.",
@@ -2475,6 +2479,8 @@ def get_turn_contract(session_id: str, req: TurnContractRequest) -> dict[str, An
         "mode": req.mode,
         "is_game_turn": req.mode == "play",
         "contract_version": "turn_contract_classic_v2",
+        "akira_default_runtime": "version_2_poisonous",
+        "akira_v2_social_mask": "available_player_controlled_mask: can pretend weakness/interest/obedience/fear to bait overconfidence; not automatic.",
         "response_profile": "api_payload_tiny_3_5_5_not_scene_style",
         "active_character_ids": classic_contract["active_character_ids"],
         "nearby_character_ids": classic_contract["nearby_character_ids"],
@@ -2657,7 +2663,7 @@ def openapi_actions() -> dict[str, Any]:
     server = PUBLIC_BASE_URL or "https://your-service.up.railway.app"
     return {
         "openapi": "3.1.0",
-        "info": {"title": f"{PROJECT_SLUG} GPT Actions", "version": "3.5.5"},
+        "info": {"title": f"{PROJECT_SLUG} GPT Actions", "version": "3.5.7"},
         "servers": [{"url": server}],
         "paths": {
             "/health": {

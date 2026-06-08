@@ -349,3 +349,6 @@ Wrong beliefs разрешены.
 - не писать художественную сцену;
 - можно использовать include_file_contents=true, если нужен аудит;
 - отвечать коротко и по делу.
+
+
+Runtime note: Акира по умолчанию v2/version_2_poisonous, если state/контракт не требует legacy v1/cold.

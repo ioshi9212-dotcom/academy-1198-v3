@@ -36,8 +36,9 @@
   "character_status": {
     "char_akira": {
       "physical_state": "собрана",
-      "runtime_variant": "version_1_cold",
-      "behavior_version": "version_1_cold",
+      "runtime_variant": "version_2_poisonous",
+      "behavior_version": "version_2_poisonous",
+      "active_mask": "version_2_poisonous",
       "pain": {},
       "injuries": [],
       "fatigue": 0,
@@ -59,6 +60,8 @@
     "environmental_effects": [],
     "pending_consequences": []
   },
-  "story_flags": {},
+  "story_flags": {
+    "akira_runtime_variant": "version_2_poisonous"
+  },
   "last_time_advance": null
 }
