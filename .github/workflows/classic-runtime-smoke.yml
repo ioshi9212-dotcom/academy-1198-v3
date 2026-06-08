@@ -24,13 +24,16 @@ jobs:
 
       - name: Check current tiny contract markers
         run: |
-          grep -q "version=\"3.5.3\"" app/main.py
+          grep -q "version=\"3.5.5\"" app/main.py
           grep -q "turn_contract_classic_v2" app/main.py
-          grep -q "response_profile.*tiny_3_5_3" app/main.py
+          grep -q "api_payload_tiny_3_5_5_not_scene_style" app/main.py
           grep -q "scene_contract_classic_bridge_v2_tiny" app/main.py
           grep -q "tiny_scene_contract_bridge" app/main.py
           grep -q "classic_output_format_contract" app/main.py
           grep -q "classic_forbidden_new_facts" app/main.py
+          grep -q "npc_dialogue_contract" app/main.py
+          grep -q "npc_registry_changes" app/main.py
+          grep -q "scene_style_contract" app/main.py
 
       - name: Check turn-contract route is on get_turn_contract
         run: |
@@ -51,4 +54,7 @@ jobs:
           test -f gpt/locks/voice_fit_lock.md
           test -f gpt/locks/markdown_dialogue_format_lock.md
           test -f gpt/locks/energy_privacy_lock.md
+          test -f gpt/locks/npc_dialogue_intervention_lock.md
+          test -f gpt/locks/tiny_profile_not_scene_style_lock.md
           test -f story/calendar/academy_start.yaml
+          test -f state_templates/npc_registry.json
