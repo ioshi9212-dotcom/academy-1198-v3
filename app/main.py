@@ -33,7 +33,7 @@ MAX_FILE_CHARS = int(os.getenv("MAX_FILE_CHARS", "18000"))
 MAX_SCENE_SLICE_CHARS = int(os.getenv("MAX_SCENE_SLICE_CHARS", "2200"))
 RUNTIME_SUMMARY_CHARS = int(os.getenv("RUNTIME_SUMMARY_CHARS", "1250"))
 
-app = FastAPI(title=f"{PROJECT_SLUG} GPT Actions API", version="3.5.9")
+app = FastAPI(title=f"{PROJECT_SLUG} GPT Actions API", version="3.6.0")
 
 RESERVED_SESSION_IDS = {"default", "new", "none", "null", "undefined", "session"}
 
@@ -917,10 +917,12 @@ def compact_scene_contract_for_tool(contract: dict[str, Any]) -> dict[str, Any]:
         "rewrite_if": ["too short", "generic", "only observing", "no NPC reaction", "no real choice", "speech options do not match selected POV voice", "NPC lines sound generic"],
     }
     result["scene_progress_contract"] = {
-        "rule": "Do not stop on micro-actions; auto-advance to real choice/reply/risk.",
-        "forbidden_micro_choices": ["press button", "wait instructions", "look panel", "take card", "walk two steps", "continue observing"],
-        "real_choices": ["reply/silence", "obey/challenge/bypass", "hide/show energy", "protect/cut off Livia", "follow/delay/exploit mistake"],
-        "auto_advance_examples": ["registration -> result + consequence + next route", "coffee -> take coffee + social beat"],
+        "rule": "Do not stop on micro-actions; aggregate obvious chains and auto-advance to real choice/reply/risk.",
+        "action_chain_rule": "If the player already chose a chain like go to desk + pass check + move on, complete it inside the scene.",
+        "forbidden_micro_choices": ["press button", "wait instructions", "look panel", "take card", "walk two steps", "continue observing", "confirm obvious next step"],
+        "real_choices": ["reply/silence", "obey/challenge/bypass", "hide/show energy with risk", "protect/cut off Livia", "follow/delay/exploit mistake", "intervene/ignore/use distraction"],
+        "auto_advance_examples": ["registration -> result + consequence + next route + next real pressure", "coffee -> take coffee + social beat", "panel/check -> resolved signal + staff/NPC reaction + next meaningful beat"],
+        "no_loop_rule": "Do not create panel/registration/card/check loops unless there is a real conflict, risk or rule breach.",
     }
     result["prose_style_contract"] = {
         "rule": "clear factual prose; no decorative literary contrast",
@@ -1670,7 +1672,7 @@ def response_format_contract() -> dict[str, Any]:
             "summary instead of scene",
             "generic polite line options for Akira v2",
         ],
-        "quality_note": "Do not answer with a fast stub. Write a real scene with NPC dialogue, pressure and consequence.",
+        "quality_note": "Do not answer with a fast stub or a procedural step list. Aggregate routine actions into natural scene flow with NPC dialogue, pressure and consequence.",
     }
 
 
@@ -1738,7 +1740,16 @@ def prose_style_contract() -> dict[str, Any]:
 def scene_progress_contract() -> dict[str, Any]:
     return {
         "priority": "hard_scene_pacing_gate",
-        "core_rule": "Do not stop on micro-actions. If the next step is obvious, narrate it and continue until a real decision/intervention point.",
+        "core_rule": "Do not stop on micro-actions. Aggregate obvious user-action chains and continue until a real decision/intervention point.",
+        "action_aggregation": {
+            "rule": "A user action can be a whole chain. If the user says to go through a check, take an item, move with someone, or get coffee, complete the obvious chain inside one scene.",
+            "examples": [
+                "go to registration + pass check -> show result, consequence, route change, and next real pressure",
+                "get coffee -> take coffee and move to the next social beat unless the coffee action itself creates conflict",
+                "follow corridor -> move through it and stop only when a person/rule/risk interrupts",
+                "give minimal energy response -> resolve the signal briefly and continue to staff/social consequence",
+            ],
+        },
         "micro_choices_forbidden": [
             "press a machine button",
             "wait for instructions",
@@ -1747,7 +1758,9 @@ def scene_progress_contract() -> dict[str, Any]:
             "walk to a nearby obvious point",
             "continue observing",
             "stand calmly",
+            "confirm an obvious next step",
             "repeat the same check with no new pressure",
+            "choose to do what the user already chose",
         ],
         "real_choice_required": [
             "answer / stay silent when someone pressures POV",
@@ -1756,7 +1769,10 @@ def scene_progress_contract() -> dict[str, Any]:
             "protect Livia / let her handle it / cut her off",
             "follow schedule / delay for information / exploit a mistake",
             "choose social position: sit, leave, approach, avoid, listen, confront",
+            "intervene in NPC conflict / ignore it / use it as cover",
         ],
+        "system_signal_rule": "Panels, cards, bracelets, registration marks and energy-check signals are not scene goals by themselves. Use them as brief facts unless they create conflict, risk, access change, rumor or NPC reaction.",
+        "pending_flag_rule": "After a micro-check is resolved, close or transform pending flags into a consequence/open thread. Do not keep the scene trapped in the same check.",
         "auto_advance_rules": [
             "If user chooses an obvious transition, complete the transition and continue to the next meaningful pressure.",
             "If it is logical to get coffee, do not stop at the vending machine unless coffee itself creates pressure; take coffee and move to the social beat.",
@@ -1767,7 +1783,6 @@ def scene_progress_contract() -> dict[str, Any]:
         "no_player_speech_without_input": "Do not write a direct Akira line unless the user gave it, or it is only an option in 'Что сказать'. Narration may describe her visible reaction.",
         "ending_rule": "End only when the player has a real decision, real reply, real risk, or real relationship/social consequence to choose.",
     }
-
 
 def scene_quality_gate_contract() -> dict[str, Any]:
     return {
@@ -2020,7 +2035,7 @@ def root() -> dict[str, Any]:
     return {
         "status": "ok",
         "project": PROJECT_SLUG,
-        "version": "3.5.9",
+        "version": "3.6.0",
         "actions_schema": "/openapi-actions.json",
         "health": "/health",
         "debug_volume": "/debug/volume",
@@ -2029,7 +2044,7 @@ def root() -> dict[str, Any]:
 
 @app.get("/health")
 def health() -> dict[str, Any]:
-    return {"success": True, "project": PROJECT_SLUG, "version": "3.5.9", "time": utc_now()}
+    return {"success": True, "project": PROJECT_SLUG, "version": "3.6.0", "time": utc_now()}
 
 
 @app.get("/debug/volume")
@@ -2072,6 +2087,7 @@ def build_classic_required_files(current_state: dict[str, Any], mode: str) -> li
         "gpt/locks/apply_state_after_turn_lock.md",
         "gpt/locks/character_presence_rotation_lock.md",
         "gpt/locks/no_micro_choices_lock.md",
+        "gpt/locks/natural_flow_action_aggregation_lock.md",
         "gpt/locks/npc_dialogue_intervention_lock.md",
         "gpt/locks/tiny_profile_not_scene_style_lock.md",
         "gpt/locks/voice_fit_lock.md",
@@ -2208,6 +2224,9 @@ def classic_required_checks(current_state: dict[str, Any]) -> list[str]:
         "Public/social pressure should include direct NPC dialogue, not only narrated summary.",
         "If an NPC gets name/role/conflict/repeat hook, save them to npc_registry.",
         "No micro-choice endings: auto-advance to real decision/reply/risk.",
+        "Aggregate obvious user action chains; do not split them into confirmation steps.",
+        "Do not let panels/cards/registration/checks become loops; resolve them and move to real pressure.",
+        "Technical signals may be one sentence inside a scene, not separate player turns unless risky/conflictual.",
         "Use day_contract as frame, not as rigid script.",
         "Do not force all possible characters into one scene.",
         "Akira default runtime is v2: speech options must be poisonous/lazy/controlled, not neutral.",
@@ -2396,6 +2415,30 @@ def compact_output_format_for_response() -> dict[str, Any]:
 
 
 
+
+def compact_action_flow_contract() -> dict[str, Any]:
+    return {
+        "priority": "hard_natural_flow_gate",
+        "api_profile_rule": "Compact API response is not a scene style instruction.",
+        "core_rule": "Aggregate obvious user-action chains; do not turn one chosen action into several confirmation turns.",
+        "do": [
+            "resolve routine checks inside the scene",
+            "move through obvious transitions automatically",
+            "use panels/cards/signals as brief facts unless they create risk",
+            "advance to staff/NPC/social consequence or next real pressure",
+            "stop only at a real decision, reply, risk, route choice, relationship beat or intervention point",
+        ],
+        "do_not": [
+            "do not ask the player to press/confirm/take/look/wait when that is already implied",
+            "do not create registration/panel/card loops",
+            "do not make technical signals separate scene goals",
+            "do not stretch a scene by narrating every tiny control step as a separate beat",
+        ],
+        "save_rule": "Do not save routine micro-steps as active pending flags. Save only resolved result, consequence, access, rumor, relationship, open thread or real risk.",
+    }
+
+
+
 def compact_social_orbit_contract() -> dict[str, Any]:
     return {
         "haru_raiden": {
@@ -2529,7 +2572,7 @@ def get_turn_contract(session_id: str, req: TurnContractRequest) -> dict[str, An
         "contract_version": "turn_contract_classic_v2",
         "akira_default_runtime": "version_2_poisonous",
         "akira_v2_social_mask": "available_player_controlled_mask: can pretend weakness/interest/obedience/fear to bait overconfidence; not automatic.",
-        "response_profile": "api_payload_tiny_3_5_5_not_scene_style",
+        "response_profile": "api_payload_compact_not_scene_style_v3_6_0",
         "active_character_ids": classic_contract["active_character_ids"],
         "nearby_character_ids": classic_contract["nearby_character_ids"],
         "focus_character_ids": classic_contract["focus_character_ids"],
@@ -2539,6 +2582,7 @@ def get_turn_contract(session_id: str, req: TurnContractRequest) -> dict[str, An
         "required_file_contents": contents,
         "output_format_contract": compact_output_format_for_response(),
         "scene_style_contract": compact_scene_style_contract(),
+        "action_flow_contract": compact_action_flow_contract(),
         "academy_uniform_contract": compact_academy_uniform_contract(),
         "social_orbit_contract": compact_social_orbit_contract(),
         "npc_dialogue_contract": compact_npc_dialogue_contract(),
@@ -2557,7 +2601,7 @@ def get_turn_contract(session_id: str, req: TurnContractRequest) -> dict[str, An
         "scene_contract": tiny_scene_contract_bridge(classic_contract),
         "save_after_scene": {
             "endpoint": "applyTurnResultSimple",
-            "rule": "Save meaningful state only. Save important named/recurring NPCs to npc_registry_changes_json.",
+            "rule": "Save meaningful state only. Save important named/recurring NPCs to npc_registry_changes_json. Do not save routine panel/card/check micro-steps as pending flags.",
         },
     }
     return response
@@ -2713,7 +2757,7 @@ def openapi_actions() -> dict[str, Any]:
     server = PUBLIC_BASE_URL or "https://your-service.up.railway.app"
     return {
         "openapi": "3.1.0",
-        "info": {"title": f"{PROJECT_SLUG} GPT Actions", "version": "3.5.9"},
+        "info": {"title": f"{PROJECT_SLUG} GPT Actions", "version": "3.6.0"},
         "servers": [{"url": server}],
         "paths": {
             "/health": {

@@ -182,3 +182,24 @@ Before sending, check:
 - no direct POV thoughts inside scene body;
 - bottom choices/thoughts do not use third-person inner stance;
 - ending block is wrapped in separator lines.
+
+
+## Natural flow / no procedural loop
+
+Do not turn one user action into several confirmation turns.
+
+If the player already chose an obvious chain, complete the chain inside the scene:
+- registration/check -> result + consequence + next route/pressure;
+- coffee -> take coffee + next social beat;
+- corridor movement -> move to the next interruption/choice;
+- minimal energy response -> brief signal result + staff/NPC/social consequence.
+
+Do not stop on:
+- press button;
+- look at panel;
+- take card;
+- wait instructions;
+- walk two steps;
+- confirm the obvious next step.
+
+Stop only at a real reply, real risk, real route/social choice, intervention point, relationship shift or consequence.
