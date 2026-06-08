@@ -33,7 +33,7 @@ MAX_FILE_CHARS = int(os.getenv("MAX_FILE_CHARS", "18000"))
 MAX_SCENE_SLICE_CHARS = int(os.getenv("MAX_SCENE_SLICE_CHARS", "2200"))
 RUNTIME_SUMMARY_CHARS = int(os.getenv("RUNTIME_SUMMARY_CHARS", "1250"))
 
-app = FastAPI(title=f"{PROJECT_SLUG} GPT Actions API", version="3.5.3")
+app = FastAPI(title=f"{PROJECT_SLUG} GPT Actions API", version="3.5.5")
 
 RESERVED_SESSION_IDS = {"default", "new", "none", "null", "undefined", "session"}
 
@@ -95,6 +95,7 @@ class ApplyTurnResultRequest(BaseModel):
     gossip_changes: dict[str, Any] = Field(default_factory=dict)
     rating_changes: dict[str, Any] = Field(default_factory=dict)
     energy_incident_changes: dict[str, Any] = Field(default_factory=dict)
+    npc_registry_changes: dict[str, Any] = Field(default_factory=dict)
 
 
 class ApplyTurnResultSimpleRequest(BaseModel):
@@ -116,6 +117,7 @@ class ApplyTurnResultSimpleRequest(BaseModel):
     gossip_changes_json: str = "{}"
     rating_changes_json: str = "{}"
     energy_incident_changes_json: str = "{}"
+    npc_registry_changes_json: str = "{}"
 
 
 class CompactRequest(BaseModel):
@@ -184,6 +186,7 @@ STATE_ITEM_CONTAINER_KEYS: dict[str, str] = {
     "event_queue.json": "items",
     "gossip_state.json": "items",
     "energy_incidents.json": "items",
+    "npc_registry.json": "items",
 }
 
 STATE_METADATA_KEYS = {
@@ -2008,7 +2011,7 @@ def root() -> dict[str, Any]:
     return {
         "status": "ok",
         "project": PROJECT_SLUG,
-        "version": "3.5.3",
+        "version": "3.5.5",
         "actions_schema": "/openapi-actions.json",
         "health": "/health",
         "debug_volume": "/debug/volume",
@@ -2017,7 +2020,7 @@ def root() -> dict[str, Any]:
 
 @app.get("/health")
 def health() -> dict[str, Any]:
-    return {"success": True, "project": PROJECT_SLUG, "version": "3.5.3", "time": utc_now()}
+    return {"success": True, "project": PROJECT_SLUG, "version": "3.5.5", "time": utc_now()}
 
 
 @app.get("/debug/volume")
@@ -2060,6 +2063,8 @@ def build_classic_required_files(current_state: dict[str, Any], mode: str) -> li
         "gpt/locks/apply_state_after_turn_lock.md",
         "gpt/locks/character_presence_rotation_lock.md",
         "gpt/locks/no_micro_choices_lock.md",
+        "gpt/locks/npc_dialogue_intervention_lock.md",
+        "gpt/locks/tiny_profile_not_scene_style_lock.md",
         "gpt/locks/voice_fit_lock.md",
         "gpt/locks/markdown_dialogue_format_lock.md",
         "gpt/locks/energy_privacy_lock.md",
@@ -2116,6 +2121,7 @@ def classic_output_format_contract() -> dict[str, Any]:
             "No direct Akira thoughts inside the scene.",
             "Akira thoughts only in bottom block: Мысли Акиры.",
             "No empty scenes: every scene needs a hook, conflict, conversation, observation, social reaction, rumor, consequence, or time skip.",
+            "If a background/social NPC creates pressure, give them at least one direct line instead of only summarizing them.",
             "If Akira goes for coffee/sleeps/walks, compress obvious steps and add a meaningful hook.",
             "No micro-choice endings: do not stop on button/card/panel/waiting.",
             "Speech options must match selected POV runtime variant.",
@@ -2123,9 +2129,9 @@ def classic_output_format_contract() -> dict[str, Any]:
             "If output format or voice fit is wrong, rewrite before sending.",
         ],
         "ending_block": {
-            "actions": "2-4 meaningful options; inner stance in first person: 'думать, что я послушная', not 'Акира послушная'.",
-            "speech": "2-4 short Akira lines in selected voice.",
-            "thoughts": "short, concrete, first-person or clipped POV thoughts.",
+            "actions": "2-4 meaningful options; not always exactly three; inner stance in first person.",
+            "speech": "2-4 short POV lines in selected voice; not always exactly three.",
+            "thoughts": "2-4 short, concrete, first-person or clipped POV thoughts.",
         },
     }
 
@@ -2135,6 +2141,7 @@ def classic_allowed_new_facts() -> list[str]:
         "neutral sensory details",
         "minor gestures, pauses, tone, clothing details",
         "small social reactions from present characters",
+        "temporary descriptive NPC with direct dialogue when needed for pressure",
         "small background energy manifestations from other students",
         "new named NPC only if saved after scene when meaningful",
         "scene consequences derived from player input and current context",
@@ -2149,6 +2156,7 @@ def classic_forbidden_new_facts(current_state: dict[str, Any]) -> list[str]:
         "hidden nature of Akira revealed without scene basis",
         "Raiden hybrid nature revealed without scene basis",
         "NPC knowledge from unseen scenes",
+        "social pressure NPC described only as narration when direct dialogue is possible",
         "new items without state update",
         "dialogue without bold speaker names",
         "direct Akira thoughts inside scene text",
@@ -2185,6 +2193,9 @@ def classic_required_checks(current_state: dict[str, Any]) -> list[str]:
         "Check knowledge_table before every NPC claim.",
         "Check inventory_contract before mentioning usable items.",
         "No empty scenes: add hook/consequence/social reaction/time compression.",
+        "Do not treat response_profile/tiny as scene length; it is API payload only.",
+        "Public/social pressure should include direct NPC dialogue, not only narrated summary.",
+        "If an NPC gets name/role/conflict/repeat hook, save them to npc_registry.",
         "No micro-choice endings: auto-advance to real decision/reply/risk.",
         "Use day_contract as frame, not as rigid script.",
         "Do not force all possible characters into one scene.",
@@ -2354,10 +2365,69 @@ def compact_output_format_for_response() -> dict[str, Any]:
             "description italic separate paragraph",
             "no API/debug text",
             "no empty scene",
+            "direct NPC dialogue for social pressure",
             "no micro-choice ending",
+            "tiny api profile is not prose length",
             "speech options match selected POV runtime",
         ],
     }
+
+
+
+
+def compact_scene_style_contract() -> dict[str, Any]:
+    return {
+        "priority": "prose_quality",
+        "api_profile_rule": "response_profile/tiny describes API payload size only, not scene length or prose quality.",
+        "length_rule": "Do not write stub scenes. A meaningful scene may be 7-12 short paragraphs/units when pressure exists.",
+        "body_rule": "Use clear factual prose with direct dialogue. Less decorative fog, more visible action/reaction.",
+        "npc_rule": "If social pressure comes from NPC/staff/student, show at least one direct line or concrete action.",
+        "ending_rule": "Use 2-4 meaningful actions, 2-4 speech options, 2-4 short POV thoughts; not always exactly three.",
+        "do_not": [
+            "Do not shorten scene just because response_profile says tiny.",
+            "Do not explain format rules to user in play-mode.",
+            "Do not turn scene into checklist or technical report.",
+        ],
+    }
+
+
+
+def compact_npc_dialogue_contract() -> dict[str, Any]:
+    return {
+        "priority": "scene_liveness",
+        "rule": "When an NPC creates pressure, write direct dialogue/action, not only narrated summary.",
+        "minimum": "In public/social scenes, use at least one direct line from a pressure NPC if a crowd/staff/student reaction matters.",
+        "dialogue_format": "**Видимый дескриптор или имя** — Реплика. (*короткая ремарка*)",
+        "intervention_rule": "Akira can choose to answer, ignore, cut in, observe, use the moment, or let another character react.",
+        "save_rule": "If NPC gets a name, role, conflict, secret, relationship impact or likely return, save via npc_registry_changes_json and/or open_thread_changes_json.",
+        "do_not": [
+            "Do not replace conflict with abstract narration only.",
+            "Do not make named/important NPC disappear without state trace.",
+        ],
+    }
+
+
+def compact_npc_registry_contract() -> dict[str, Any]:
+    return {
+        "file": "state/npc_registry.json",
+        "save_when": [
+            "NPC receives a name",
+            "NPC creates conflict or social pressure",
+            "NPC has role/status/secret",
+            "NPC changes reputation, relationship, knowledge or rumor",
+            "NPC may return",
+        ],
+        "minimal_record": {
+            "id": "npc_short_slug",
+            "display_name": "visible name/descriptor",
+            "role": "student/staff/instructor/etc",
+            "first_seen": "date/time/location",
+            "summary": "1-2 lines",
+            "relation_to_pov": "hostile/curious/neutral/etc",
+            "return_hook": "why they may appear again",
+        },
+    }
+
 
 
 def tiny_scene_contract_bridge(classic_contract: dict[str, Any]) -> dict[str, Any]:
@@ -2369,7 +2439,7 @@ def tiny_scene_contract_bridge(classic_contract: dict[str, Any]) -> dict[str, An
         "current_frame": compact_value(classic_contract.get("current_frame", {}), max_depth=2, max_items=6, max_text=90),
         "active_character_ids": classic_contract.get("active_character_ids", []),
         "focus_character_ids": classic_contract.get("focus_character_ids", []),
-        "output_format_hint": "Use top-level output_format_contract. This bridge exists only to satisfy scene_contract gates.",
+        "output_format_hint": "Use top-level output_format_contract. This bridge exists only to satisfy scene_contract gates. Tiny is API payload size, not scene length.",
         "play_gate": {
             "rule": "scene_contract is usable; continue with top-level turn_contract_classic_v2 fields.",
             "failure_line": "Не удалось собрать turn-contract через Action. Без него я не продолжаю игровую сцену.",
@@ -2405,7 +2475,7 @@ def get_turn_contract(session_id: str, req: TurnContractRequest) -> dict[str, An
         "mode": req.mode,
         "is_game_turn": req.mode == "play",
         "contract_version": "turn_contract_classic_v2",
-        "response_profile": "tiny_3_5_3",
+        "response_profile": "api_payload_tiny_3_5_5_not_scene_style",
         "active_character_ids": classic_contract["active_character_ids"],
         "nearby_character_ids": classic_contract["nearby_character_ids"],
         "focus_character_ids": classic_contract["focus_character_ids"],
@@ -2414,6 +2484,9 @@ def get_turn_contract(session_id: str, req: TurnContractRequest) -> dict[str, An
         "required_file_count": len(required_files),
         "required_file_contents": contents,
         "output_format_contract": compact_output_format_for_response(),
+        "scene_style_contract": compact_scene_style_contract(),
+        "npc_dialogue_contract": compact_npc_dialogue_contract(),
+        "npc_registry_contract": compact_npc_registry_contract(),
         "allowed_new_facts_this_turn": classic_contract["allowed_new_facts_this_turn"][:5],
         "forbidden_new_facts_this_turn": classic_contract["forbidden_new_facts_this_turn"][:18],
         "required_checks_before_answer": classic_contract["required_checks_before_answer"][:16],
@@ -2428,7 +2501,7 @@ def get_turn_contract(session_id: str, req: TurnContractRequest) -> dict[str, An
         "scene_contract": tiny_scene_contract_bridge(classic_contract),
         "save_after_scene": {
             "endpoint": "applyTurnResultSimple",
-            "rule": "Save meaningful state only.",
+            "rule": "Save meaningful state only. Save important named/recurring NPCs to npc_registry_changes_json.",
         },
     }
     return response
@@ -2465,6 +2538,7 @@ def apply_turn_result(session_id: str, req: ApplyTurnResultRequest) -> dict[str,
         ("gossip_state.json", req.gossip_changes),
         ("rating_state.json", req.rating_changes),
         ("energy_incidents.json", req.energy_incident_changes),
+        ("npc_registry.json", req.npc_registry_changes),
     ]
 
     updated = ["scene_history.jsonl"]
@@ -2526,6 +2600,7 @@ def apply_turn_result_simple(session_id: str, req: ApplyTurnResultSimpleRequest)
             gossip_changes=parse_json_text(req.gossip_changes_json, "gossip_changes_json"),
             rating_changes=parse_json_text(req.rating_changes_json, "rating_changes_json"),
             energy_incident_changes=parse_json_text(req.energy_incident_changes_json, "energy_incident_changes_json"),
+            npc_registry_changes=parse_json_text(req.npc_registry_changes_json, "npc_registry_changes_json"),
         ),
     )
 
@@ -2582,7 +2657,7 @@ def openapi_actions() -> dict[str, Any]:
     server = PUBLIC_BASE_URL or "https://your-service.up.railway.app"
     return {
         "openapi": "3.1.0",
-        "info": {"title": f"{PROJECT_SLUG} GPT Actions", "version": "3.5.3"},
+        "info": {"title": f"{PROJECT_SLUG} GPT Actions", "version": "3.5.5"},
         "servers": [{"url": server}],
         "paths": {
             "/health": {
