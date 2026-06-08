@@ -33,7 +33,7 @@ MAX_FILE_CHARS = int(os.getenv("MAX_FILE_CHARS", "18000"))
 MAX_SCENE_SLICE_CHARS = int(os.getenv("MAX_SCENE_SLICE_CHARS", "2200"))
 RUNTIME_SUMMARY_CHARS = int(os.getenv("RUNTIME_SUMMARY_CHARS", "1250"))
 
-app = FastAPI(title=f"{PROJECT_SLUG} GPT Actions API", version="3.6.0")
+app = FastAPI(title=f"{PROJECT_SLUG} GPT Actions API", version="3.6.2")
 
 RESERVED_SESSION_IDS = {"default", "new", "none", "null", "undefined", "session"}
 
@@ -2035,7 +2035,7 @@ def root() -> dict[str, Any]:
     return {
         "status": "ok",
         "project": PROJECT_SLUG,
-        "version": "3.6.0",
+        "version": "3.6.2",
         "actions_schema": "/openapi-actions.json",
         "health": "/health",
         "debug_volume": "/debug/volume",
@@ -2044,7 +2044,7 @@ def root() -> dict[str, Any]:
 
 @app.get("/health")
 def health() -> dict[str, Any]:
-    return {"success": True, "project": PROJECT_SLUG, "version": "3.6.0", "time": utc_now()}
+    return {"success": True, "project": PROJECT_SLUG, "version": "3.6.2", "time": utc_now()}
 
 
 @app.get("/debug/volume")
@@ -2084,6 +2084,7 @@ def build_classic_required_files(current_state: dict[str, Any], mode: str) -> li
         "canon/relationship_memory_rules.md",
         "state/memory_update_rules.md",
         "gpt/locks/no_empty_scenes_lock.md",
+        "gpt/locks/play_identity_mode_lock.md",
         "gpt/locks/apply_state_after_turn_lock.md",
         "gpt/locks/character_presence_rotation_lock.md",
         "gpt/locks/no_micro_choices_lock.md",
@@ -2134,9 +2135,41 @@ def build_classic_required_files(current_state: dict[str, Any], mode: str) -> li
 def classic_output_format_contract() -> dict[str, Any]:
     return {
         "priority": "highest_for_scene_output",
+        "separator_line": "━━━━━━━━━━━━━━━━━━━━",
+        "header_template": [
+            "━━━━━━━━━━━━━━━━━━━━",
+            "📅 {date_human}",
+            "🕒 {time_human}",
+            "📍 Место: {location_human}",
+            "🌤 Погода: {weather_human}",
+            "🫀 Состояние Акиры: {pov_state_human}",
+            "🎒 При себе / рядом: {context_human}",
+            "━━━━━━━━━━━━━━━━━━━━",
+        ],
+        "ending_template": [
+            "━━━━━━━━━━━━━━━━━━━━",
+            "Что можно сделать:",
+            "1.",
+            "2.",
+            "3.",
+            "",
+            "Что сказать:",
+            "— “...”",
+            "— “...”",
+            "— “...”",
+            "",
+            "Мысли Акиры:",
+            "— ...",
+            "— ...",
+            "— ...",
+            "━━━━━━━━━━━━━━━━━━━━",
+        ],
         "dialogue_format": "**Имя или видимый дескриптор** — Реплика. (*короткая ремарка: тон, взгляд, пауза, жест*)",
         "description_format": "*Описание действия, окружения, системной реакции или атмосферы отдельной строкой курсивом.*",
         "rules": [
+            "Header/ending separator lines are mandatory.",
+            "Emoji header is mandatory.",
+            "Do not collapse bottom choice block into one line.",
             "Every spoken line starts with bold speaker name or visible descriptor.",
             "Do not use names Akira has not heard or read yet.",
             "After speaker name use long dash.",
@@ -2215,6 +2248,9 @@ def classic_required_checks(current_state: dict[str, Any]) -> list[str]:
         "Load turn-contract every turn.",
         "Use required_files and runtime summaries; do not continue from chat memory.",
         "Obey output_format_contract exactly.",
+        "Treat 'начнем/сцену/первая сцена/продолжить' as play intent; do not ask for setting/active characters.",
+        "Uploaded character images are references only; they do not replace API state/calendar/runtime.",
+        "Never ask what to do with images in play mode; call createSession/getSessionTurnContract.",
         "Check active/focus character runtime before writing any line.",
         "Check voice_fit_lock before speech options and NPC dialogue.",
         "Check knowledge_table before every NPC claim.",
@@ -2242,6 +2278,8 @@ def classic_required_checks(current_state: dict[str, Any]) -> list[str]:
 
 def classic_canon_locks(current_state: dict[str, Any]) -> list[str]:
     return [
+        "play_intent_detection: слова начнем/сцену/первая сцена/продолжить/играем означают play-mode через Actions, без уточнения сеттинга и состава персонажей.",
+        "uploaded_images_are_refs_only: загруженные изображения не меняют режим на image-task; они не заменяют API/state/calendar/runtime.",
         "livia_old_friend: Ливия — старая близкая подруга Акиры, не новая знакомая и не гид.",
         "akira_default_runtime_v2: основная runtime-версия Акиры сейчас version_2_poisonous; v1 хранится как legacy/cold backup, но не используется по умолчанию.",
         "akira_variant_lock: использовать только выбранную runtime-версию Акиры.",
@@ -2393,26 +2431,75 @@ def compact_focus_map_for_response(value: dict[str, Any], *, max_items: int = 4)
 
 
 def compact_output_format_for_response() -> dict[str, Any]:
+    separator = "━━━━━━━━━━━━━━━━━━━━"
+    header_template = [
+        separator,
+        "📅 {date_human}",
+        "🕒 {time_human}",
+        "📍 Место: {location_human}",
+        "🌤 Погода: {weather_human}",
+        "🫀 Состояние Акиры: {pov_state_human}",
+        "🎒 При себе / рядом: {context_human}",
+        separator,
+    ]
+    ending_template = [
+        separator,
+        "Что можно сделать:",
+        "1.",
+        "2.",
+        "3.",
+        "",
+        "Что сказать:",
+        "— “...”",
+        "— “...”",
+        "— “...”",
+        "",
+        "Мысли Акиры:",
+        "— ...",
+        "— ...",
+        "— ...",
+        separator,
+    ]
     return {
         "priority": "highest_for_scene_output",
+        "separator_line": separator,
+        "header_required": True,
+        "header_template": header_template,
         "description_format": "*Описание/действие/системная реакция отдельным курсивным абзацем.*",
         "dialogue_format": "**Имя или видимый дескриптор** — Реплика. (*короткая ремарка*)",
-        "ending_block": "Что можно сделать / Что сказать / Мысли Акиры",
-        "rules_short": [
-            "bold speaker + long dash",
-            "description italic separate paragraph",
-            "no API/debug text",
-            "no empty scene",
-            "direct NPC dialogue for social pressure",
-            "no micro-choice ending",
-            "tiny api profile is not prose length",
-            "speech options match selected POV runtime",
+        "ending_template": ending_template,
+        "ending_block": "Structured block only; never collapse into one line.",
+        "hard_rules": [
+            "Start scene with separator + emoji header + separator.",
+            "End scene with separator + structured choices/speech/thoughts + separator.",
+            "Do not collapse choices into a comma-separated sentence.",
+            "Do not remove emoji markers.",
+            "Do not replace header with title/freeform prose.",
+            "Bold speaker + long dash for every spoken line.",
+            "Descriptions/actions/system reactions must be separate italic paragraphs.",
+            "No API/debug text.",
+            "No empty scene.",
+            "Direct NPC dialogue for social pressure.",
+            "No micro-choice ending.",
+            "Compact API profile is not prose length/style.",
+            "Speech options match selected POV runtime.",
         ],
+        "start_context_rule": "Akira start visible context: чёрная рубашка, бордовый пиджак Академии, чёрная юбка-шорты, ботинки, сумка с одеждой, документы, телефон.",
     }
 
 
 
 
+def compact_play_identity_contract() -> dict[str, Any]:
+    return {
+        "priority": "hard_mode_gate",
+        "role": "runtime director of interactive novel, not image assistant, not prompt helper, not setup interviewer",
+        "play_intents": ["начнем", "начать", "сцену", "первая сцена", "первая сцена из календаря", "продолжить", "играем", "акира версия 2"],
+        "rule": "If user asks to start/continue/play a scene, call createSession if needed and getSessionTurnContract. Do not ask for setting, situation, active characters, or what to do with uploaded images.",
+        "image_rule": "Uploaded character images are visual references only unless user explicitly asks to edit/generate/analyze images. They do not override API canon/state/calendar/runtime.",
+        "first_scene_rule": "If user asks first scene/calendar scene, use current calendar/day_contract from API. Do not invent setup from uploaded images.",
+        "failure_rule": "If Action fails, use the configured stop phrase only. Do not continue from chat memory or images.",
+    }
 
 
 
@@ -2572,7 +2659,7 @@ def get_turn_contract(session_id: str, req: TurnContractRequest) -> dict[str, An
         "contract_version": "turn_contract_classic_v2",
         "akira_default_runtime": "version_2_poisonous",
         "akira_v2_social_mask": "available_player_controlled_mask: can pretend weakness/interest/obedience/fear to bait overconfidence; not automatic.",
-        "response_profile": "api_payload_compact_not_scene_style_v3_6_0",
+        "response_profile": "api_payload_compact_not_scene_style_v3_6_2",
         "active_character_ids": classic_contract["active_character_ids"],
         "nearby_character_ids": classic_contract["nearby_character_ids"],
         "focus_character_ids": classic_contract["focus_character_ids"],
@@ -2580,8 +2667,24 @@ def get_turn_contract(session_id: str, req: TurnContractRequest) -> dict[str, An
         "required_files": required_files[:30],
         "required_file_count": len(required_files),
         "required_file_contents": contents,
+        "header_contract": {
+            "separator_line": "━━━━━━━━━━━━━━━━━━━━",
+            "emoji_header_required": True,
+            "template": [
+                "━━━━━━━━━━━━━━━━━━━━",
+                "📅 {date_human}",
+                "🕒 {time_human}",
+                "📍 Место: {location_human}",
+                "🌤 Погода: {weather_human}",
+                "🫀 Состояние Акиры: {pov_state_human}",
+                "🎒 При себе / рядом: {context_human}",
+                "━━━━━━━━━━━━━━━━━━━━",
+            ],
+            "start_context": "чёрная рубашка, бордовый пиджак Академии, чёрная юбка-шорты, ботинки, сумка с одеждой, документы, телефон",
+        },
         "output_format_contract": compact_output_format_for_response(),
         "scene_style_contract": compact_scene_style_contract(),
+        "play_identity_contract": compact_play_identity_contract(),
         "action_flow_contract": compact_action_flow_contract(),
         "academy_uniform_contract": compact_academy_uniform_contract(),
         "social_orbit_contract": compact_social_orbit_contract(),
@@ -2757,7 +2860,7 @@ def openapi_actions() -> dict[str, Any]:
     server = PUBLIC_BASE_URL or "https://your-service.up.railway.app"
     return {
         "openapi": "3.1.0",
-        "info": {"title": f"{PROJECT_SLUG} GPT Actions", "version": "3.6.0"},
+        "info": {"title": f"{PROJECT_SLUG} GPT Actions", "version": "3.6.2"},
         "servers": [{"url": server}],
         "paths": {
             "/health": {

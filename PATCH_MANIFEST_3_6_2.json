@@ -1,0 +1,28 @@
+{
+  "patch": "3.6.2_PATCH_ONLY",
+  "purpose": [
+    "do not switch to image-assistant mode",
+    "make output_format_contract explicit enough in Action response",
+    "keep bottom choices structured, not collapsed",
+    "add one active Custom GPT instruction file under 8000 chars",
+    "provide cleanup list for old patch/manifest files"
+  ],
+  "changed_files": [
+    "app/main.py",
+    ".github/workflows/classic-runtime-smoke.yml",
+    "gpt/CUSTOM_GPT_INSTRUCTIONS_ACTIVE.md",
+    "gpt/CUSTOM_GPT_INSTRUCTIONS_UNDER_8000_v3_6_2.md",
+    "CLEANUP_DELETE_LIST_3_6_2.md",
+    "PATCH_MANIFEST_3_6_2.json",
+    "README_3_6_2_PATCH_ONLY.md"
+  ],
+  "manual_delete": [
+    "PATCH_README_TURN_CONTRACT_COMPACT.md",
+    "DELETE_OLD_FILES_CLASSIC_RESTORE.md",
+    "PATCH_MANIFEST_COMPACT_HEADER.json",
+    "PATCH_MANIFEST_TURN_CONTRACT_COMPACT.json",
+    "gpt/CUSTOM_GPT_INSTRUCTIONS_UNDER_8000_v3_6_0.md",
+    "gpt/CUSTOM_GPT_INSTRUCTIONS_UNDER_8000_v3_6_1.md"
+  ],
+  "schema_url": "https://web-production-cd472.up.railway.app/openapi-actions.json"
+}
