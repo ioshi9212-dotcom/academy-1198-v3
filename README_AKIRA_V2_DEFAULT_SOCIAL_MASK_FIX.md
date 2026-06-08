@@ -55,5 +55,3 @@ Livia knows Akira can do this and may recognize warning signs:
 3. Check `/health`: should show `3.5.7`.
 4. Update Actions schema.
 5. Start a new session.
-
-Note: `state_templates/current_state.json` is included so fresh sessions start with Akira v2.

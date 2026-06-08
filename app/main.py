@@ -33,7 +33,7 @@ MAX_FILE_CHARS = int(os.getenv("MAX_FILE_CHARS", "18000"))
 MAX_SCENE_SLICE_CHARS = int(os.getenv("MAX_SCENE_SLICE_CHARS", "2200"))
 RUNTIME_SUMMARY_CHARS = int(os.getenv("RUNTIME_SUMMARY_CHARS", "1250"))
 
-app = FastAPI(title=f"{PROJECT_SLUG} GPT Actions API", version="3.5.7")
+app = FastAPI(title=f"{PROJECT_SLUG} GPT Actions API", version="3.5.8")
 
 RESERVED_SESSION_IDS = {"default", "new", "none", "null", "undefined", "session"}
 
@@ -2011,7 +2011,7 @@ def root() -> dict[str, Any]:
     return {
         "status": "ok",
         "project": PROJECT_SLUG,
-        "version": "3.5.7",
+        "version": "3.5.8",
         "actions_schema": "/openapi-actions.json",
         "health": "/health",
         "debug_volume": "/debug/volume",
@@ -2020,7 +2020,7 @@ def root() -> dict[str, Any]:
 
 @app.get("/health")
 def health() -> dict[str, Any]:
-    return {"success": True, "project": PROJECT_SLUG, "version": "3.5.7", "time": utc_now()}
+    return {"success": True, "project": PROJECT_SLUG, "version": "3.5.8", "time": utc_now()}
 
 
 @app.get("/debug/volume")
@@ -2205,6 +2205,7 @@ def classic_required_checks(current_state: dict[str, Any]) -> list[str]:
         "Akira v2 may use social mask only when player action supports it.",
         "Livia is old close friend and active social pressure, not guide.",
         "Academy has energy carriers in background, but no automatic Akira reveal.",
+        "Use academy_uniform_contract for academy clothing; do not default Akira to generic skirt/tie/shoes.",
         "After meaningful scene, call applyTurnResultSimple and save important changes.",
         "Rewrite before sending if format, voice, knowledge, or pacing is wrong.",
     ]
@@ -2218,6 +2219,8 @@ def classic_canon_locks(current_state: dict[str, Any]) -> list[str]:
         "akira_v2_voice: Акира v2 короткая, ленивая на поверхности, ядовитая, контролирующая, без мягкого дефолта.",
         "akira_hidden_nature_remains_secret: природа Акиры остаётся скрытой; не раскрывать датчиком/narration/NPC без earned source.",
         "academy_energy_background: Академия для носителей энергии; фоновые проявления допустимы, но не power-showcase без причины.",
+        "academy_uniform_variation: базовая форма бордовая с тёмной рубашкой и золотыми деталями; студенты часто нарушают идеал формы по характеру/образу.",
+        "akira_uniform_specific: Акира носит бордовый пиджак, чёрную рубашку, чёрную юбку-шорты, массивные высокие ботинки и без галстука.",
         "no_auto_akira_energy_check_aug15: 15 августа обычная регистрация не раскрывает/уточняет энергию Акиры автоматически.",
         "energy_privacy_aug31: 31 августа не афишировать типы энергии студентов, включая Акиру, без официального основания.",
         "raiden_dark_haired: Райден всегда тёмноволосый.",
@@ -2379,6 +2382,22 @@ def compact_output_format_for_response() -> dict[str, Any]:
 
 
 
+
+def compact_academy_uniform_contract() -> dict[str, Any]:
+    return {
+        "palette": "Academy uniform base palette: dark burgundy, black/dark shirt, gold details.",
+        "standard": {
+            "all_students": "burgundy blazer/jacket with academy mark; dark shirt; practical neat silhouette",
+            "girls": "burgundy blazer, dark shirt, tie/ribbon/neck detail optional, skirt is standard, practical shoes",
+            "boys": "burgundy blazer/jacket, dark shirt, trousers, practical shoes",
+        },
+        "personalization_rule": "Uniform is regulated but students often bend it according to character/status: white instead of black shirt, shorter/longer skirt, jewelry, sleeves rolled, shirt untucked, missing tie, belts or boots. This is not official ideal form, but normal social texture.",
+        "akira_uniform": "Akira: burgundy academy blazer with gold emblem/details, black shirt, black skirt-shorts instead of standard skirt, no tie, long heavy black boots like the reference; very long loose white hair.",
+        "use_rule": "Mention uniform variations only when visually relevant; do not over-describe every scene.",
+    }
+
+
+
 def compact_scene_style_contract() -> dict[str, Any]:
     return {
         "priority": "prose_quality",
@@ -2491,6 +2510,7 @@ def get_turn_contract(session_id: str, req: TurnContractRequest) -> dict[str, An
         "required_file_contents": contents,
         "output_format_contract": compact_output_format_for_response(),
         "scene_style_contract": compact_scene_style_contract(),
+        "academy_uniform_contract": compact_academy_uniform_contract(),
         "npc_dialogue_contract": compact_npc_dialogue_contract(),
         "npc_registry_contract": compact_npc_registry_contract(),
         "allowed_new_facts_this_turn": classic_contract["allowed_new_facts_this_turn"][:5],
@@ -2663,7 +2683,7 @@ def openapi_actions() -> dict[str, Any]:
     server = PUBLIC_BASE_URL or "https://your-service.up.railway.app"
     return {
         "openapi": "3.1.0",
-        "info": {"title": f"{PROJECT_SLUG} GPT Actions", "version": "3.5.7"},
+        "info": {"title": f"{PROJECT_SLUG} GPT Actions", "version": "3.5.8"},
         "servers": [{"url": server}],
         "paths": {
             "/health": {
